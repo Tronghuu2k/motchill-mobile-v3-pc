@@ -60,7 +60,7 @@
       poster,
       backdrop: thumb,
       year: raw.year || '2026',
-      badge: badge || 'FHD',
+      badge: badge || 'HD',
       modifiedTime,
       isToday
     };
@@ -90,7 +90,7 @@
       const lastSync = window.appStorage?.getLastDailySyncDate?.() || '';
       const needDailyAutoSync = lastSync !== today;
 
-      const cacheKey = `home_v6_1_${today}`;
+      const cacheKey = `home_nf_v6_${today}`;
       if (!forceRefresh && !needDailyAutoSync) {
         const cached = getCache(cacheKey);
         if (cached) return cached;
@@ -163,7 +163,6 @@
         sections.push({
           id: 'phim-chieu-rap',
           title: 'Đề Xuất Phim Hay Dành Cho Bạn',
-          icon: '★',
           items: recommended
         });
       }
@@ -171,19 +170,18 @@
         sections.push({
           id: 'phim-moi-cap-nhat',
           title: `Mới Cập Nhật Hôm Nay (${dailyList.length})`,
-          icon: '●',
           items: dailyList.slice(0, 20)
         });
       }
 
-      const pushSec = (items, id, title, icon) => {
-        if (items.length > 0) sections.push({ id, title, icon, items: items.slice(0, 20) });
+      const pushSec = (items, id, title) => {
+        if (items.length > 0) sections.push({ id, title, items: items.slice(0, 20) });
       };
 
-      pushSec(boItems, 'phim-bo', 'Phim Bộ Đang Thịnh Hành', '■');
-      pushSec(leItems, 'phim-le', 'Phim Lẻ Tuyển Chọn', '◆');
-      pushSec(rapItems, 'phim-chieu-rap', 'Siêu Phẩm Chiếu Rạp', '★');
-      pushSec(animeItems, 'hoat-hinh', 'Anime & Hoạt Hình Đặc Sắc', '✦');
+      pushSec(boItems, 'phim-bo', 'Phim Bộ Đang Thịnh Hành');
+      pushSec(leItems, 'phim-le', 'Phim Lẻ Tuyển Chọn');
+      pushSec(rapItems, 'phim-chieu-rap', 'Siêu Phẩm Chiếu Rạp');
+      pushSec(animeItems, 'hoat-hinh', 'Anime & Hoạt Hình');
 
       if (sections.length === 0) {
         throw new Error('Không thể kết nối kho phim Rosi Cinema. Vui lòng kiểm tra kết nối mạng.');

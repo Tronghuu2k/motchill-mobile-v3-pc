@@ -4,10 +4,11 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        brand: {
-          500: "#ef4444",
-          600: "#dc2626",
-          700: "#b91c1c"
+        netflix: {
+          bg: "#141414",
+          surface: "#181818",
+          card: "#222222",
+          red: "#e50914"
         }
       }
     }

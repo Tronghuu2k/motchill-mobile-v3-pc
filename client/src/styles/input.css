@@ -18,49 +18,24 @@ input, textarea {
 }
 
 html, body {
-  background-color: #07090e;
-  color: #f8fafc;
+  background-color: #141414;
+  color: #ffffff;
   overflow-x: hidden;
   overscroll-behavior-y: none;
   scroll-behavior: smooth;
-}
-
-body.mode-mobile {
   padding-top: var(--safe-top);
-  padding-bottom: calc(76px + var(--safe-bottom));
+  padding-bottom: calc(74px + var(--safe-bottom));
 }
 
-body.mode-tv {
-  padding-left: 86px;
-  padding-bottom: 24px;
-}
-
-body.mode-tv #mobile-header,
-body.mode-tv #mobile-bottom-nav {
-  display: none !important;
-}
-
-body.mode-tv #tv-sidebar {
-  display: flex !important;
-}
-
-body.mode-mobile #tv-sidebar {
-  display: none !important;
-}
-
-body.mode-tv [tabindex]:focus-visible,
-body.mode-tv button:focus-visible,
-body.mode-tv input:focus-visible,
-body.mode-tv .tv-focusable:focus {
-  outline: 3px solid #f59e0b !important;
-  outline-offset: 3px;
-  transform: scale(1.045);
-  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.28), 0 14px 30px rgba(0, 0, 0, 0.9) !important;
-  z-index: 30;
-}
-
-body.mode-mobile .tv-focusable:active {
-  transform: scale(0.96);
+body.fullscreen-lock,
+body.fullscreen-lock html,
+html.fullscreen-lock {
+  overflow: hidden !important;
+  height: 100vh !important;
+  width: 100vw !important;
+  position: fixed !important;
+  inset: 0 !important;
+  touch-action: none !important;
 }
 
 @keyframes fadeSlideUp {
@@ -69,8 +44,8 @@ body.mode-mobile .tv-focusable:active {
 }
 
 @keyframes modalSlideUp {
-  from { opacity: 0; transform: translateY(18px) scale(0.99); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes shimmer {
@@ -79,19 +54,19 @@ body.mode-mobile .tv-focusable:active {
 }
 
 @keyframes seekPop {
-  0% { opacity: 0; transform: scale(0.8); }
-  25% { opacity: 1; transform: scale(1.06); }
+  0% { opacity: 0; transform: scale(0.82); }
+  25% { opacity: 1; transform: scale(1.05); }
   80% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(0.95); }
 }
 
 .animate-screen {
-  animation: fadeSlideUp 0.24s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: fadeSlideUp 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   will-change: transform, opacity;
 }
 
 .animate-modal {
-  animation: modalSlideUp 0.26s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: modalSlideUp 0.24s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   will-change: transform, opacity;
 }
 
@@ -100,15 +75,15 @@ body.mode-mobile .tv-focusable:active {
 }
 
 .skeleton-box {
-  background: linear-gradient(90deg, #111622 25%, #1e293b 50%, #111622 75%);
+  background: linear-gradient(90deg, #1a1a1a 25%, #2b2b2b 50%, #1a1a1a 75%);
   background-size: 200% 100%;
   animation: shimmer 1.25s infinite linear;
 }
 
-.glass-panel {
-  background: rgba(11, 15, 25, 0.85);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
+.nf-glass {
+  background: rgba(20, 20, 20, 0.88);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -121,9 +96,9 @@ body.mode-mobile .tv-focusable:active {
 
 .rank-number {
   font-family: Impact, 'Arial Black', sans-serif;
-  -webkit-text-stroke: 2px rgba(245, 158, 11, 0.85);
-  color: rgba(7, 9, 14, 0.85);
-  text-shadow: 0 6px 18px rgba(0, 0, 0, 0.9);
+  -webkit-text-stroke: 2px #737373;
+  color: #141414;
+  text-shadow: 0 6px 16px rgba(0, 0, 0, 0.9);
 }
 
 #player-stage.aspect-16-9 { aspect-ratio: 16 / 9; }
@@ -141,7 +116,7 @@ body.mode-mobile .tv-focusable:active {
 }
 #player-stage video {
   object-fit: contain;
-  transition: transform 0.22s ease, object-fit 0.22s ease;
+  transition: transform 0.2s ease, object-fit 0.2s ease;
 }
 
 #player-stage.landscape-player {
@@ -149,8 +124,11 @@ body.mode-mobile .tv-focusable:active {
   inset: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
+  max-width: 100vw !important;
   max-height: 100vh !important;
   aspect-ratio: unset !important;
-  z-index: 95 !important;
-  background: #000 !important;
+  z-index: 120 !important;
+  background: #000000 !important;
+  overflow: hidden !important;
+  touch-action: none !important;
 }

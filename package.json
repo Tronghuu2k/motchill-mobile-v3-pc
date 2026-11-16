@@ -1,7 +1,7 @@
 {
   "name": "rosi-cinema-app",
-  "version": "2.2.0",
-  "description": "Rosi Cinema - Adaptive Touch Phone & Remote TV Box Streaming App",
+  "version": "2.3.0",
+  "description": "Rosi Cinema - Mobile Streaming App",
   "scripts": {
     "sync:apk": "npx cap sync android"
   },

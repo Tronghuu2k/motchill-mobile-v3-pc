@@ -3,88 +3,55 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#07090e" />
+  <meta name="theme-color" content="#141414" />
   <title>Rosi Cinema</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15"></script>
   <link rel="stylesheet" href="styles/input.css" />
 </head>
-<body class="mode-mobile bg-[#07090e] text-slate-100 font-sans antialiased selection:bg-amber-500/30">
+<body class="bg-[#141414] text-white font-sans antialiased selection:bg-[#e50914]/35">
 
-  <header id="mobile-header" class="sticky top-0 z-30 glass-panel border-b border-white/10 px-4 py-3 flex items-center justify-between">
+  <header id="mobile-header" class="sticky top-0 z-30 nf-glass border-b border-neutral-800/80 px-4 py-3 flex items-center justify-between">
     <div class="flex items-center gap-2">
-      <span class="bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 font-black text-xs px-2 py-0.5 rounded-lg shadow">RC</span>
-      <span class="font-black tracking-wider text-base text-white">ROSI<span class="text-amber-400"> CINEMA</span></span>
+      <span class="font-black tracking-wider text-lg text-[#e50914]">ROSI<span class="text-white"> CINEMA</span></span>
     </div>
     <div class="flex items-center gap-2">
-      <button tabindex="0" onclick="window.appRouter.go('topweek')"
-              class="tv-focusable text-amber-300 text-[11px] font-bold px-2.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 transition">
+      <button onclick="window.appRouter.go('topweek')"
+              class="text-neutral-200 text-xs font-bold px-3 py-1.5 rounded bg-[#222222] border border-neutral-700 transition">
         Top Tuần
       </button>
-      <button tabindex="0" onclick="window.appRouter.go('explore')"
-              class="tv-focusable text-slate-200 text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-900 border border-white/10 transition">
+      <button onclick="window.appRouter.go('explore')"
+              class="text-neutral-200 text-xs font-semibold px-3 py-1.5 rounded bg-[#222222] border border-neutral-700 transition">
         Tìm kiếm
       </button>
     </div>
   </header>
 
-  <aside id="tv-sidebar" class="hidden fixed left-0 top-0 bottom-0 w-20 z-40 glass-panel border-r border-white/10 flex-col items-center justify-between py-6">
-    <div class="flex flex-col items-center gap-1">
-      <span class="bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 font-black text-sm px-2.5 py-1 rounded-xl shadow-lg">RC</span>
-      <span class="text-[9px] font-black tracking-widest text-amber-400 mt-1">TV BOX</span>
-    </div>
-
-    <div class="flex flex-col gap-4 w-full px-2">
-      <button tabindex="0" data-tab="home" onclick="window.appRouter.go('home')"
-              class="tv-focusable flex flex-col items-center justify-center py-2.5 rounded-2xl text-amber-400 transition">
-        <span class="nav-pill px-3 py-1 rounded-xl bg-amber-500/20 text-xs font-black">01</span>
-        <span class="text-[10px] font-bold mt-1">Trang chủ</span>
-      </button>
-      <button tabindex="0" data-tab="topweek" onclick="window.appRouter.go('topweek')"
-              class="tv-focusable flex flex-col items-center justify-center py-2.5 rounded-2xl text-slate-400 transition">
-        <span class="nav-pill px-3 py-1 rounded-xl text-xs font-black">02</span>
-        <span class="text-[10px] font-bold mt-1">Top Tuần</span>
-      </button>
-      <button tabindex="0" data-tab="explore" onclick="window.appRouter.go('explore')"
-              class="tv-focusable flex flex-col items-center justify-center py-2.5 rounded-2xl text-slate-400 transition">
-        <span class="nav-pill px-3 py-1 rounded-xl text-xs font-black">03</span>
-        <span class="text-[10px] font-bold mt-1">Khám phá</span>
-      </button>
-      <button tabindex="0" data-tab="library" onclick="window.appRouter.go('library')"
-              class="tv-focusable flex flex-col items-center justify-center py-2.5 rounded-2xl text-slate-400 transition">
-        <span class="nav-pill px-3 py-1 rounded-xl text-xs font-black">04</span>
-        <span class="text-[10px] font-bold mt-1">Tủ phim</span>
-      </button>
-    </div>
-
-    <div class="text-[9px] font-bold text-slate-500 text-center px-1">D-PAD<br/>READY</div>
-  </aside>
-
   <main id="main-view" class="min-h-screen pb-20"></main>
 
-  <div id="detail-modal" class="hidden fixed inset-0 z-50 bg-[#07090e] overflow-hidden"></div>
+  <div id="detail-modal" class="hidden fixed inset-0 z-50 bg-[#141414] overflow-hidden"></div>
 
-  <nav id="mobile-bottom-nav" class="fixed bottom-0 inset-x-0 z-40 glass-panel border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
+  <nav id="mobile-bottom-nav" class="fixed bottom-0 inset-x-0 z-40 nf-glass border-t border-neutral-800 pb-[env(safe-area-inset-bottom)]">
     <div class="grid grid-cols-4 h-16 px-1">
-      <button tabindex="0" data-tab="home" onclick="window.appRouter.go('home')"
-              class="tv-focusable flex flex-col items-center justify-center gap-0.5 text-amber-400 transition">
-        <span class="nav-pill px-3.5 py-1 rounded-full bg-amber-500/20 transition text-[11px] font-black leading-none">HOME</span>
-        <span class="text-[10px] font-bold tracking-wide">Trang chủ</span>
+      <button data-tab="home" onclick="window.appRouter.go('home')"
+              class="flex flex-col items-center justify-center gap-1 text-white transition">
+        <span class="text-[11px] font-black tracking-wide">Trang chủ</span>
+        <span class="nav-indicator w-6 h-0.5 rounded bg-[#e50914] transition"></span>
       </button>
-      <button tabindex="0" data-tab="topweek" onclick="window.appRouter.go('topweek')"
-              class="tv-focusable flex flex-col items-center justify-center gap-0.5 text-slate-400 transition">
-        <span class="nav-pill px-3.5 py-1 rounded-full transition text-[11px] font-black leading-none">TOP</span>
-        <span class="text-[10px] font-bold tracking-wide">Top Tuần</span>
+      <button data-tab="topweek" onclick="window.appRouter.go('topweek')"
+              class="flex flex-col items-center justify-center gap-1 text-neutral-400 transition">
+        <span class="text-[11px] font-bold tracking-wide">Top Tuần</span>
+        <span class="nav-indicator w-6 h-0.5 rounded bg-transparent transition"></span>
       </button>
-      <button tabindex="0" data-tab="explore" onclick="window.appRouter.go('explore')"
-              class="tv-focusable flex flex-col items-center justify-center gap-0.5 text-slate-400 transition">
-        <span class="nav-pill px-3.5 py-1 rounded-full transition text-[11px] font-black leading-none">HAY</span>
-        <span class="text-[10px] font-bold tracking-wide">Đề xuất</span>
+      <button data-tab="explore" onclick="window.appRouter.go('explore')"
+              class="flex flex-col items-center justify-center gap-1 text-neutral-400 transition">
+        <span class="text-[11px] font-bold tracking-wide">Đề xuất</span>
+        <span class="nav-indicator w-6 h-0.5 rounded bg-transparent transition"></span>
       </button>
-      <button tabindex="0" data-tab="library" onclick="window.appRouter.go('library')"
-              class="tv-focusable flex flex-col items-center justify-center gap-0.5 text-slate-400 transition">
-        <span class="nav-pill px-3.5 py-1 rounded-full transition text-[11px] font-black leading-none">TỦ</span>
-        <span class="text-[10px] font-bold tracking-wide">Tủ phim</span>
+      <button data-tab="library" onclick="window.appRouter.go('library')"
+              class="flex flex-col items-center justify-center gap-1 text-neutral-400 transition">
+        <span class="text-[11px] font-bold tracking-wide">Tủ phim</span>
+        <span class="nav-indicator w-6 h-0.5 rounded bg-transparent transition"></span>
       </button>
     </div>
   </nav>

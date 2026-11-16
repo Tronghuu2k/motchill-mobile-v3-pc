@@ -11,7 +11,7 @@ window.appStorage = {
         slug: movie.slug,
         title: movie.title,
         poster: movie.poster,
-        badge: movie.badge || movie.status || 'FHD',
+        badge: movie.badge || movie.status || 'HD',
         genre: movie.genre || '',
         lastKnownStatus: movie.status || movie.badge || ''
       });
@@ -70,11 +70,5 @@ window.appStorage = {
   },
   setLastDailySyncDate(dateStr) {
     try { localStorage.setItem('rosi_last_daily_sync', dateStr); } catch {}
-  },
-  getDeviceModeOverride() {
-    try { return localStorage.getItem('rosi_device_mode') || 'auto'; } catch { return 'auto'; }
-  },
-  setDeviceModeOverride(mode) {
-    try { localStorage.setItem('rosi_device_mode', mode); } catch {}
   }
 };
