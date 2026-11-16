@@ -4,7 +4,7 @@
   "webDir": "client/src",
   "bundledWebRuntime": false,
   "server": {
-    "androidScheme": "https",
+    "url": "https://tronghuu2k.github.io/motchill-mobile-v3-pc/client/src/",
     "cleartext": true
   },
   "plugins": {
