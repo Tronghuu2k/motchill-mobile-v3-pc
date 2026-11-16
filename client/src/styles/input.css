@@ -18,28 +18,49 @@ input, textarea {
 }
 
 html, body {
-  background-color: #0b0b0f;
-  color: #f4f4f5;
+  background-color: #07090e;
+  color: #f8fafc;
   overflow-x: hidden;
   overscroll-behavior-y: none;
   scroll-behavior: smooth;
 }
 
-body {
+body.mode-mobile {
   padding-top: var(--safe-top);
   padding-bottom: calc(76px + var(--safe-bottom));
 }
 
-/* TV Box D-Pad Focus Highlight */
-[tabindex]:focus-visible,
-button:focus-visible,
-input:focus-visible,
-.tv-focusable:focus {
-  outline: 3px solid #E50914 !important;
-  outline-offset: 2px;
-  transform: scale(1.04);
-  box-shadow: 0 0 0 4px rgba(229, 9, 20, 0.35), 0 10px 25px rgba(0, 0, 0, 0.85) !important;
-  z-index: 25;
+body.mode-tv {
+  padding-left: 86px;
+  padding-bottom: 24px;
+}
+
+body.mode-tv #mobile-header,
+body.mode-tv #mobile-bottom-nav {
+  display: none !important;
+}
+
+body.mode-tv #tv-sidebar {
+  display: flex !important;
+}
+
+body.mode-mobile #tv-sidebar {
+  display: none !important;
+}
+
+body.mode-tv [tabindex]:focus-visible,
+body.mode-tv button:focus-visible,
+body.mode-tv input:focus-visible,
+body.mode-tv .tv-focusable:focus {
+  outline: 3px solid #f59e0b !important;
+  outline-offset: 3px;
+  transform: scale(1.045);
+  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.28), 0 14px 30px rgba(0, 0, 0, 0.9) !important;
+  z-index: 30;
+}
+
+body.mode-mobile .tv-focusable:active {
+  transform: scale(0.96);
 }
 
 @keyframes fadeSlideUp {
@@ -59,7 +80,7 @@ input:focus-visible,
 
 @keyframes seekPop {
   0% { opacity: 0; transform: scale(0.8); }
-  25% { opacity: 1; transform: scale(1.05); }
+  25% { opacity: 1; transform: scale(1.06); }
   80% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(0.95); }
 }
@@ -79,15 +100,15 @@ input:focus-visible,
 }
 
 .skeleton-box {
-  background: linear-gradient(90deg, #16161b 25%, #26262e 50%, #16161b 75%);
+  background: linear-gradient(90deg, #111622 25%, #1e293b 50%, #111622 75%);
   background-size: 200% 100%;
   animation: shimmer 1.25s infinite linear;
 }
 
-.glass-bar {
-  background: rgba(11, 11, 15, 0.86);
-  backdrop-filter: blur(20px) saturate(175%);
-  -webkit-backdrop-filter: blur(20px) saturate(175%);
+.glass-panel {
+  background: rgba(11, 15, 25, 0.85);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -98,19 +119,17 @@ input:focus-visible,
   scrollbar-width: none;
 }
 
-/* Video Aspect Ratio Modes */
-#player-stage.aspect-16-9 {
-  aspect-ratio: 16 / 9;
+.rank-number {
+  font-family: Impact, 'Arial Black', sans-serif;
+  -webkit-text-stroke: 2px rgba(245, 158, 11, 0.85);
+  color: rgba(7, 9, 14, 0.85);
+  text-shadow: 0 6px 18px rgba(0, 0, 0, 0.9);
 }
-#player-stage.aspect-4-3 {
-  aspect-ratio: 4 / 3;
-}
-#player-stage.aspect-21-9 {
-  aspect-ratio: 21 / 9;
-}
-#player-stage.aspect-fill {
-  aspect-ratio: 16 / 9;
-}
+
+#player-stage.aspect-16-9 { aspect-ratio: 16 / 9; }
+#player-stage.aspect-4-3 { aspect-ratio: 4 / 3; }
+#player-stage.aspect-21-9 { aspect-ratio: 21 / 9; }
+#player-stage.aspect-fill { aspect-ratio: 16 / 9; }
 #player-stage.aspect-fill video,
 #player-stage.aspect-fill iframe {
   object-fit: cover !important;
@@ -125,7 +144,6 @@ input:focus-visible,
   transition: transform 0.22s ease, object-fit 0.22s ease;
 }
 
-/* Landscape Fullscreen Watch Mode */
 #player-stage.landscape-player {
   position: fixed !important;
   inset: 0 !important;
@@ -133,6 +151,6 @@ input:focus-visible,
   height: 100vh !important;
   max-height: 100vh !important;
   aspect-ratio: unset !important;
-  z-index: 90 !important;
+  z-index: 95 !important;
   background: #000 !important;
 }

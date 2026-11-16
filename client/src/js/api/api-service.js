@@ -21,7 +21,7 @@
   }
 
   function setCache(key, data, ttl = CACHE_TTL) {
-    if (cache.size > 50) {
+    if (cache.size > 60) {
       const oldestKey = cache.keys().next().value;
       if (oldestKey) cache.delete(oldestKey);
     }
@@ -59,7 +59,7 @@
       thumb: poster,
       poster,
       backdrop: thumb,
-      year: raw.year || '',
+      year: raw.year || '2026',
       badge: badge || 'FHD',
       modifiedTime,
       isToday
@@ -90,19 +90,20 @@
       const lastSync = window.appStorage?.getLastDailySyncDate?.() || '';
       const needDailyAutoSync = lastSync !== today;
 
-      const cacheKey = `home_data_${today}`;
+      const cacheKey = `home_v6_${today}`;
       if (!forceRefresh && !needDailyAutoSync) {
         const cached = getCache(cacheKey);
         if (cached) return cached;
       }
 
-      const [resHotP1, resHotP2, resBo, resLe, resRap, resAnime] = await Promise.allSettled([
+      const [resHotP1, resHotP2, resBo, resLe, resRap, resAnime, resTopView] = await Promise.allSettled([
         safeFetchJson(`${PHIM_API_BASE}/danh-sach/phim-moi-cap-nhat?page=1`),
         safeFetchJson(`${PHIM_API_BASE}/danh-sach/phim-moi-cap-nhat?page=2`),
         safeFetchJson(`${PHIM_API_BASE}/v1/api/danh-sach/phim-bo?page=1`),
         safeFetchJson(`${PHIM_API_BASE}/v1/api/danh-sach/phim-le?page=1`),
         safeFetchJson(`${PHIM_API_BASE}/v1/api/danh-sach/phim-chieu-rap?page=1`),
-        safeFetchJson(`${PHIM_API_BASE}/v1/api/danh-sach/hoat-hinh?page=1`)
+        safeFetchJson(`${PHIM_API_BASE}/v1/api/danh-sach/hoat-hinh?page=1`),
+        safeFetchJson(`${PHIM_API_BASE}/v1/api/danh-sach/phim-bo?sort_field=view&limit=12`)
       ]);
 
       const extractItems = (res, isRoot = false) => {
@@ -115,6 +116,12 @@
 
       const hotP1 = extractItems(resHotP1, true);
       const hotP2 = extractItems(resHotP2, true);
+      const boItems = extractItems(resBo);
+      const leItems = extractItems(resLe);
+      const rapItems = extractItems(resRap);
+      const animeItems = extractItems(resAnime);
+      const topViewRaw = extractItems(resTopView);
+
       const mergedHot = [...hotP1, ...hotP2];
       const uniqueHot = [];
       const seenSlugs = new Set();
@@ -125,15 +132,46 @@
         }
       }
 
+      const topWeeklySource = topViewRaw.length >= 10 ? topViewRaw : [...rapItems.slice(0, 4), ...boItems.slice(0, 4), ...leItems.slice(0, 4)];
+      const topWeekly = [];
+      const seenTop = new Set();
+      for (const item of topWeeklySource) {
+        if (!seenTop.has(item.slug) && topWeekly.length < 10) {
+          seenTop.add(item.slug);
+          topWeekly.push({ ...item, rank: topWeekly.length + 1 });
+        }
+      }
+
+      const history = window.appStorage?.getHistory?.() || [];
+      const favs = window.appStorage?.getFavorites?.() || [];
+      const watchedSlugs = new Set([...history.map(h => h.slug), ...favs.map(f => f.slug)]);
+      const recPool = [...rapItems, ...boItems, ...leItems, ...animeItems].filter(it => !watchedSlugs.has(it.slug));
+      const recommended = [];
+      const seenRec = new Set();
+      for (const item of recPool) {
+        if (!seenRec.has(item.slug) && recommended.length < 16) {
+          seenRec.add(item.slug);
+          recommended.push(item);
+        }
+      }
+
       const dailyMovies = uniqueHot.filter(it => it.isToday);
       const dailyList = dailyMovies.length > 0 ? dailyMovies : uniqueHot.slice(0, 18);
 
       const sections = [];
+      if (recommended.length > 0) {
+        sections.push({
+          id: 'phim-chieu-rap',
+          title: 'Đề Xuất Phim Hay Dành Cho Bạn',
+          icon: '✨',
+          items: recommended
+        });
+      }
       if (dailyList.length > 0) {
         sections.push({
           id: 'phim-moi-cap-nhat',
-          title: `Mới Ra Mắt Hôm Nay (${dailyList.length})`,
-          icon: '🔥',
+          title: `Mới Cập Nhật Hôm Nay (${dailyList.length})`,
+          icon: '🆕',
           items: dailyList.slice(0, 20)
         });
       }
@@ -142,24 +180,22 @@
         if (items.length > 0) sections.push({ id, title, icon, items: items.slice(0, 20) });
       };
 
-      pushSec(hotP1, 'phim-moi-cap-nhat', 'Top Thịnh Hành Trên Rosi Cinema', '👑');
-      pushSec(extractItems(resBo), 'phim-bo', 'Phim Bộ Đang Gây Sốt', '📺');
-      pushSec(extractItems(resLe), 'phim-le', 'Phim Lẻ Bom Tấn', '🎬');
-      pushSec(extractItems(resRap), 'phim-chieu-rap', 'Phim Chiếu Rạp Đặc Sắc', '🍿');
-      pushSec(extractItems(resAnime), 'hoat-hinh', 'Anime & Hoạt Hình', '✨');
+      pushSec(boItems, 'phim-bo', 'Phim Bộ Đang Thịnh Hành', '📺');
+      pushSec(leItems, 'phim-le', 'Phim Lẻ Tuyển Chọn', '🎬');
+      pushSec(rapItems, 'phim-chieu-rap', 'Siêu Phẩm Chiếu Rạp', '🍿');
+      pushSec(animeItems, 'hoat-hinh', 'Anime & Hoạt Hình Đặc Sắc', '🌟');
 
       if (sections.length === 0) {
-        throw new Error('Không thể kết nối kho phim Rosi Cinema. Vui lòng kiểm tra Wi-Fi hoặc 4G/5G!');
+        throw new Error('Không thể kết nối kho phim Rosi Cinema. Vui lòng kiểm tra kết nối mạng!');
       }
 
-      const topCandidate = dailyList[0] || hotP1[0] || null;
+      const topCandidate = topWeekly[0] || dailyList[0] || hotP1[0] || null;
       let hero = topCandidate;
       if (topCandidate) {
         try { hero = await this.getMovieDetail(topCandidate.slug); } catch (e) {}
       }
 
       const favUpdates = [];
-      const favs = window.appStorage?.getFavorites?.() || [];
       for (const fav of favs) {
         const matched = uniqueHot.find(m => m.slug === fav.slug);
         if (matched && matched.badge && fav.lastKnownStatus && matched.badge !== fav.lastKnownStatus) {
@@ -170,16 +206,16 @@
 
       if (window.appStorage?.setLastDailySyncDate) {
         window.appStorage.setLastDailySyncDate(today);
-        window.appStorage.setNewUpdatesCount(dailyList.length);
       }
 
       const result = {
         hero,
+        topWeekly,
+        recommended,
         sections,
         dailyMovies: dailyList,
         favUpdates,
-        syncedDate: today,
-        timestamp: Date.now()
+        syncedDate: today
       };
       setCache(cacheKey, result);
       return result;

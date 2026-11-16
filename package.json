@@ -1,7 +1,7 @@
 {
   "name": "rosi-cinema-app",
-  "version": "2.0.0",
-  "description": "Rosi Cinema - Netflix Style Streaming App for Android Phone & TV Box (Signed APK)",
+  "version": "2.1.0",
+  "description": "Rosi Cinema - Adaptive Touch Phone & Remote TV Box Streaming App",
   "scripts": {
     "sync:apk": "npx cap sync android"
   },

@@ -12,6 +12,7 @@ window.appStorage = {
         title: movie.title,
         poster: movie.poster,
         badge: movie.badge || movie.status || 'FHD',
+        genre: movie.genre || '',
         lastKnownStatus: movie.status || movie.badge || ''
       });
     }
@@ -33,7 +34,14 @@ window.appStorage = {
   saveHistory(movie, epNum) {
     try {
       const list = JSON.parse(localStorage.getItem('rosi_history') || '[]').filter(m => m.slug !== movie.slug);
-      list.unshift({ slug: movie.slug, title: movie.title, poster: movie.poster, ep: epNum, updatedAt: Date.now() });
+      list.unshift({
+        slug: movie.slug,
+        title: movie.title,
+        poster: movie.poster,
+        ep: epNum,
+        genre: movie.genre || '',
+        updatedAt: Date.now()
+      });
       localStorage.setItem('rosi_history', JSON.stringify(list.slice(0, 30)));
     } catch {}
   },
@@ -63,10 +71,10 @@ window.appStorage = {
   setLastDailySyncDate(dateStr) {
     try { localStorage.setItem('rosi_last_daily_sync', dateStr); } catch {}
   },
-  getNewUpdatesCount() {
-    try { return parseInt(localStorage.getItem('rosi_new_updates_count') || '0', 10); } catch { return 0; }
+  getDeviceModeOverride() {
+    try { return localStorage.getItem('rosi_device_mode') || 'auto'; } catch { return 'auto'; }
   },
-  setNewUpdatesCount(count) {
-    try { localStorage.setItem('rosi_new_updates_count', String(count)); } catch {}
+  setDeviceModeOverride(mode) {
+    try { localStorage.setItem('rosi_device_mode', mode); } catch {}
   }
 };

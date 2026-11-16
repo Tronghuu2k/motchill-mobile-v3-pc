@@ -3,57 +3,88 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0b0f" />
+  <meta name="theme-color" content="#07090e" />
   <title>Rosi Cinema</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15"></script>
   <link rel="stylesheet" href="styles/input.css" />
 </head>
-<body class="bg-[#0b0b0f] text-zinc-100 font-sans antialiased selection:bg-[#E50914]/30">
+<body class="mode-mobile bg-[#07090e] text-slate-100 font-sans antialiased selection:bg-amber-500/30">
 
-  <header class="sticky top-0 z-30 glass-bar border-b border-white/10 px-4 py-3 flex items-center justify-between">
+  <header id="mobile-header" class="sticky top-0 z-30 glass-panel border-b border-white/10 px-4 py-3 flex items-center justify-between">
     <div class="flex items-center gap-2">
-      <span class="bg-[#E50914] text-white font-black text-sm px-2 py-0.5 rounded shadow">R</span>
-      <span class="font-black tracking-wider text-base text-white">ROSI<span class="text-[#E50914]"> CINEMA</span></span>
+      <span class="bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 font-black text-xs px-2 py-0.5 rounded-lg shadow">RC</span>
+      <span class="font-black tracking-wider text-base text-white">ROSI<span class="text-amber-400"> CINEMA</span></span>
     </div>
     <div class="flex items-center gap-2">
-      <button tabindex="0" onclick="window.appRouter.go('daily')"
-              class="tv-focusable text-emerald-400 text-[11px] font-bold px-2.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 active:scale-95 transition">
-        🆕 Hôm nay
+      <button tabindex="0" onclick="window.appRouter.go('topweek')"
+              class="tv-focusable text-amber-300 text-[11px] font-bold px-2.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 transition">
+        🏆 Top Tuần
       </button>
       <button tabindex="0" onclick="window.appRouter.go('explore')"
-              class="tv-focusable text-zinc-200 text-xs font-semibold px-3 py-1.5 rounded-full bg-zinc-900 border border-white/10 active:scale-95 transition">
+              class="tv-focusable text-slate-200 text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-900 border border-white/10 transition">
         🔍 Tìm
       </button>
     </div>
   </header>
 
-  <main id="main-view" class="min-h-screen pb-20"></main>
+  <aside id="tv-sidebar" class="hidden fixed left-0 top-0 bottom-0 w-20 z-40 glass-panel border-r border-white/10 flex-col items-center justify-between py-6">
+    <div class="flex flex-col items-center gap-1">
+      <span class="bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 font-black text-sm px-2.5 py-1 rounded-xl shadow-lg">RC</span>
+      <span class="text-[9px] font-black tracking-widest text-amber-400 mt-1">TV BOX</span>
+    </div>
 
-  <div id="detail-modal" class="hidden fixed inset-0 z-50 bg-[#0b0b0f] overflow-hidden"></div>
-
-  <nav class="fixed bottom-0 inset-x-0 z-40 glass-bar border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
-    <div class="grid grid-cols-4 h-16 px-1">
+    <div class="flex flex-col gap-4 w-full px-2">
       <button tabindex="0" data-tab="home" onclick="window.appRouter.go('home')"
-              class="tv-focusable flex flex-col items-center justify-center gap-0.5 text-[#E50914] active:scale-95 transition">
-        <span class="nav-pill px-3.5 py-1 rounded-full bg-[#E50914]/20 transition text-base leading-none">🏠</span>
-        <span class="text-[10px] font-bold tracking-wide">Trang chủ</span>
+              class="tv-focusable flex flex-col items-center justify-center py-2.5 rounded-2xl text-amber-400 transition">
+        <span class="nav-pill px-3 py-1 rounded-xl bg-amber-500/20 text-lg">🏠</span>
+        <span class="text-[10px] font-bold mt-1">Trang chủ</span>
       </button>
-      <button tabindex="0" data-tab="daily" onclick="window.appRouter.go('daily')"
-              class="tv-focusable relative flex flex-col items-center justify-center gap-0.5 text-zinc-400 active:scale-95 transition">
-        <span id="daily-nav-badge" class="hidden absolute top-1.5 right-3 bg-emerald-500 text-zinc-950 text-[9px] font-black px-1.5 rounded-full">0</span>
-        <span class="nav-pill px-3.5 py-1 rounded-full transition text-base leading-none">🆕</span>
-        <span class="text-[10px] font-bold tracking-wide">Hôm nay</span>
+      <button tabindex="0" data-tab="topweek" onclick="window.appRouter.go('topweek')"
+              class="tv-focusable flex flex-col items-center justify-center py-2.5 rounded-2xl text-slate-400 transition">
+        <span class="nav-pill px-3 py-1 rounded-xl text-lg">🏆</span>
+        <span class="text-[10px] font-bold mt-1">Top Tuần</span>
       </button>
       <button tabindex="0" data-tab="explore" onclick="window.appRouter.go('explore')"
-              class="tv-focusable flex flex-col items-center justify-center gap-0.5 text-zinc-400 active:scale-95 transition">
-        <span class="nav-pill px-3.5 py-1 rounded-full transition text-base leading-none">🧭</span>
-        <span class="text-[10px] font-bold tracking-wide">Khám phá</span>
+              class="tv-focusable flex flex-col items-center justify-center py-2.5 rounded-2xl text-slate-400 transition">
+        <span class="nav-pill px-3 py-1 rounded-xl text-lg">🔍</span>
+        <span class="text-[10px] font-bold mt-1">Khám phá</span>
       </button>
       <button tabindex="0" data-tab="library" onclick="window.appRouter.go('library')"
-              class="tv-focusable flex flex-col items-center justify-center gap-0.5 text-zinc-400 active:scale-95 transition">
+              class="tv-focusable flex flex-col items-center justify-center py-2.5 rounded-2xl text-slate-400 transition">
+        <span class="nav-pill px-3 py-1 rounded-xl text-lg">📚</span>
+        <span class="text-[10px] font-bold mt-1">Tủ phim</span>
+      </button>
+    </div>
+
+    <div class="text-[9px] font-bold text-slate-500 text-center px-1">D-PAD<br/>READY</div>
+  </aside>
+
+  <main id="main-view" class="min-h-screen pb-20"></main>
+
+  <div id="detail-modal" class="hidden fixed inset-0 z-50 bg-[#07090e] overflow-hidden"></div>
+
+  <nav id="mobile-bottom-nav" class="fixed bottom-0 inset-x-0 z-40 glass-panel border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
+    <div class="grid grid-cols-4 h-16 px-1">
+      <button tabindex="0" data-tab="home" onclick="window.appRouter.go('home')"
+              class="tv-focusable flex flex-col items-center justify-center gap-0.5 text-amber-400 transition">
+        <span class="nav-pill px-3.5 py-1 rounded-full bg-amber-500/20 transition text-base leading-none">🏠</span>
+        <span class="text-[10px] font-bold tracking-wide">Trang chủ</span>
+      </button>
+      <button tabindex="0" data-tab="topweek" onclick="window.appRouter.go('topweek')"
+              class="tv-focusable flex flex-col items-center justify-center gap-0.5 text-slate-400 transition">
+        <span class="nav-pill px-3.5 py-1 rounded-full transition text-base leading-none">🏆</span>
+        <span class="text-[10px] font-bold tracking-wide">Top Tuần</span>
+      </button>
+      <button tabindex="0" data-tab="explore" onclick="window.appRouter.go('explore')"
+              class="tv-focusable flex flex-col items-center justify-center gap-0.5 text-slate-400 transition">
+        <span class="nav-pill px-3.5 py-1 rounded-full transition text-base leading-none">🧭</span>
+        <span class="text-[10px] font-bold tracking-wide">Đề xuất</span>
+      </button>
+      <button tabindex="0" data-tab="library" onclick="window.appRouter.go('library')"
+              class="tv-focusable flex flex-col items-center justify-center gap-0.5 text-slate-400 transition">
         <span class="nav-pill px-3.5 py-1 rounded-full transition text-base leading-none">📚</span>
-        <span class="text-[10px] font-bold tracking-wide">Danh sách</span>
+        <span class="text-[10px] font-bold tracking-wide">Tủ phim</span>
       </button>
     </div>
   </nav>
