@@ -1,6 +1,6 @@
 {
-  "appId": "com.motchill.mobile.app",
-  "appName": "Motchill Mobile",
+  "appId": "com.rosicinema.tv.app",
+  "appName": "Rosi Cinema",
   "webDir": "client/src",
   "bundledWebRuntime": false,
   "server": {
@@ -10,7 +10,7 @@
   "plugins": {
     "StatusBar": {
       "style": "DARK",
-      "backgroundColor": "#09090b"
+      "backgroundColor": "#0b0b0f"
     }
   }
 }
