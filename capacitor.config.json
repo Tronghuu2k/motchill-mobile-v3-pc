@@ -1,0 +1,16 @@
+{
+  "appId": "com.motchill.mobile.app",
+  "appName": "Motchill Mobile",
+  "webDir": "client/src",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#09090b"
+    }
+  }
+}
