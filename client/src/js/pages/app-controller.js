@@ -22,7 +22,7 @@
 
     const labelEl = document.getElementById('device-mode-label');
     if (labelEl) {
-      labelEl.textContent = activeDeviceMode === 'tv' ? '📺 Chế độ TV Box (Remote)' : '📱 Chế độ Điện thoại (Cảm ứng)';
+      labelEl.textContent = activeDeviceMode === 'tv' ? 'Chế độ TV Box (Remote)' : 'Chế độ Điện thoại (Cảm ứng)';
     }
   }
 
@@ -79,7 +79,7 @@
 
       if (data.favUpdates?.length > 0) {
         const first = data.favUpdates[0];
-        window.showToast(`🔔 "${first.title}" vừa có ${first.newEp}!`);
+        window.showToast(`"${first.title}" vừa có ${first.newEp}!`);
       }
 
       let html = '<div class="animate-screen">';
@@ -95,7 +95,7 @@
             <div class="absolute bottom-5 left-4 right-4 md:left-8 md:max-w-xl">
               <div class="flex flex-wrap items-center gap-2 mb-2">
                 <span class="bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow">
-                  🏆 TOP 1 ĐỀ CỬ
+                  TOP 1 ĐỀ CỬ
                 </span>
                 <span class="glass-panel text-amber-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-amber-500/30">
                   ★ 9.8 IMDb
@@ -105,15 +105,15 @@
                 </span>
               </div>
               <h2 class="text-2xl md:text-4xl font-black text-white line-clamp-2 leading-tight tracking-tight drop-shadow-lg">${data.hero.title}</h2>
-              <p class="text-xs text-slate-300 mt-1.5 line-clamp-1 font-medium">${data.hero.genre || 'Siêu Phẩm Tuyển Chọn'} • ${data.hero.status || 'FHD'}</p>
+              <p class="text-xs text-slate-300 mt-1.5 line-clamp-1 font-medium">${data.hero.genre || 'Siêu Phẩm Tuyển Chọn'} - ${data.hero.status || 'FHD'}</p>
               <div class="flex gap-2.5 mt-4">
                 <button tabindex="0" onclick="window.appRouter.openDetail('${data.hero.slug}', true)"
                         class="tv-focusable flex-1 bg-gradient-to-r from-amber-400 to-orange-500 hover:brightness-110 transition text-slate-950 font-black text-xs py-3.5 rounded-2xl shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2">
-                  <span>▶</span> <span>Xem Ngay</span>
+                  <span>●</span> <span>Xem Ngay</span>
                 </button>
                 <button tabindex="0" onclick="window.appRouter.openDetail('${data.hero.slug}')"
                         class="tv-focusable flex-1 glass-panel hover:bg-slate-800 transition text-white font-bold text-xs py-3.5 rounded-2xl border border-white/15 flex items-center justify-center gap-1.5">
-                  <span>ⓘ</span> <span>Chi Tiết</span>
+                  <span>i</span> <span>Chi Tiết</span>
                 </button>
               </div>
             </div>
@@ -126,12 +126,12 @@
           <section class="mt-5 px-4 md:px-6">
             <div class="flex items-center justify-between mb-3">
               <h3 class="text-sm md:text-base font-black text-white tracking-tight flex items-center gap-2">
-                <span class="text-amber-400">🏆</span>
+                <span class="text-amber-400">★</span>
                 <span>Bảng Xếp Hạng Top 10 Tuần</span>
               </h3>
               <button tabindex="0" onclick="window.appRouter.go('topweek')"
                       class="tv-focusable text-xs font-bold text-amber-400 hover:text-amber-300 px-2.5 py-1 rounded-lg">
-                Xem BXH ›
+                Xem BXH &gt;
               </button>
             </div>
             <div class="flex gap-4 overflow-x-auto no-scrollbar py-2 px-1">
@@ -146,12 +146,12 @@
           <section class="mt-6 px-4 md:px-6">
             <div class="flex items-center justify-between mb-2.5">
               <h3 class="text-sm md:text-base font-extrabold text-white tracking-tight flex items-center gap-1.5">
-                <span>${sec.icon}</span>
+                <span class="text-amber-400">${sec.icon}</span>
                 <span>${sec.title}</span>
               </h3>
               <button tabindex="0" onclick="window.appRouter.openCategory('danh-sach', '${sec.id}', '${sec.title}')"
                       class="tv-focusable text-xs font-bold text-slate-400 hover:text-amber-400 px-2.5 py-1 rounded-lg">
-                Tất cả ›
+                Tất cả &gt;
               </button>
             </div>
             <div class="flex gap-3 overflow-x-auto no-scrollbar py-1 px-0.5">
@@ -166,7 +166,7 @@
     } catch (err) {
       mainView().innerHTML = `
         <div class="p-8 text-center space-y-3 animate-screen">
-          <div class="text-3xl">📡</div>
+          <div class="text-2xl font-black text-amber-400">!</div>
           <p class="text-red-400 text-sm font-medium">${err.message}</p>
           <button tabindex="0" onclick="window.appRouter.renderHome(true)" class="tv-focusable px-5 py-2.5 bg-amber-500 text-slate-950 rounded-xl text-xs font-black">
             Thử lại ngay
@@ -191,12 +191,12 @@
         <div class="p-4 md:p-6 space-y-6 animate-screen">
           <div class="bg-gradient-to-r from-amber-500/20 via-slate-900 to-slate-900 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between">
             <div>
-              <h2 class="text-base font-black text-white flex items-center gap-2">🏆 Top 10 Phim Hot Nhất Tuần</h2>
-              <p class="text-[11px] text-slate-400 mt-1">Xếp hạng theo lượt xem thực tế & độ yêu thích trên Rosi Cinema</p>
+              <h2 class="text-base font-black text-white flex items-center gap-2">★ Top 10 Phim Hot Nhất Tuần</h2>
+              <p class="text-[11px] text-slate-400 mt-1">Xếp hạng theo lượt xem thực tế &amp; độ yêu thích trên Rosi Cinema</p>
             </div>
-            <button tabindex="0" onclick="window.appRouter.renderTopWeekly(true); window.showToast('Đã làm mới bảng xếp hạng tuần!')"
+            <button tabindex="0" onclick="window.appRouter.renderTopWeekly(true); window.showToast('Đã làm mới bảng xếp hạng tuần.')"
                     class="tv-focusable px-3.5 py-2 bg-amber-500 text-slate-950 rounded-xl text-xs font-black shadow">
-              🔄 Cập nhật
+              Cập nhật
             </button>
           </div>
 
@@ -220,7 +220,7 @@
           </div>
 
           <div>
-            <h3 class="text-sm font-black text-white mb-3">✨ Đề Xuất Phim Hay Có Thể Bạn Thích</h3>
+            <h3 class="text-sm font-black text-white mb-3">★ Đề Xuất Phim Hay Có Thể Bạn Thích</h3>
             <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
               ${recList.map(it => window.renderMovieCard(it, true)).join('')}
             </div>
@@ -236,16 +236,16 @@
     setActiveTab('explore');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     const categories = [
-      { type: 'danh-sach', slug: 'phim-moi-cap-nhat', label: '🆕 Mới Hôm Nay' },
-      { type: 'danh-sach', slug: 'phim-bo', label: '📺 Phim Bộ' },
-      { type: 'danh-sach', slug: 'phim-le', label: '🎬 Phim Lẻ' },
-      { type: 'danh-sach', slug: 'hoat-hinh', label: '✨ Hoạt Hình' },
-      { type: 'the-loai', slug: 'hanh-dong', label: '⚔️ Hành Động' },
-      { type: 'the-loai', slug: 'tinh-cam', label: '💘 Tình Cảm' },
-      { type: 'the-loai', slug: 'kinh-di', label: '👻 Kinh Dị' },
-      { type: 'quoc-gia', slug: 'han-quoc', label: '🇰🇷 Hàn Quốc' },
-      { type: 'quoc-gia', slug: 'trung-quoc', label: '🇨🇳 Trung Quốc' },
-      { type: 'quoc-gia', slug: 'au-my', label: '🇺🇸 Âu Mỹ' }
+      { type: 'danh-sach', slug: 'phim-moi-cap-nhat', label: 'Mới Hôm Nay' },
+      { type: 'danh-sach', slug: 'phim-bo', label: 'Phim Bộ' },
+      { type: 'danh-sach', slug: 'phim-le', label: 'Phim Lẻ' },
+      { type: 'danh-sach', slug: 'hoat-hinh', label: 'Hoạt Hình' },
+      { type: 'the-loai', slug: 'hanh-dong', label: 'Hành Động' },
+      { type: 'the-loai', slug: 'tinh-cam', label: 'Tình Cảm' },
+      { type: 'the-loai', slug: 'kinh-di', label: 'Kinh Dị' },
+      { type: 'quoc-gia', slug: 'han-quoc', label: 'Hàn Quốc' },
+      { type: 'quoc-gia', slug: 'trung-quoc', label: 'Trung Quốc' },
+      { type: 'quoc-gia', slug: 'au-my', label: 'Âu Mỹ' }
     ];
 
     const initialRec = latestHomeData?.recommended || [];
@@ -267,7 +267,7 @@
         </div>
 
         <div id="explore-header" class="mt-5 mb-3 text-xs font-extrabold text-amber-400 uppercase tracking-wider">
-          ${initialRec.length ? '✨ Đề Xuất Phim Hay Dành Cho Bạn' : ''}
+          ${initialRec.length ? '★ Đề Xuất Phim Hay Dành Cho Bạn' : ''}
         </div>
         <div id="explore-results" class="grid grid-cols-3 md:grid-cols-6 gap-3">
           ${initialRec.map(it => window.renderMovieCard(it, true)).join('')}
@@ -284,11 +284,11 @@
         const box = document.getElementById('explore-results');
         const head = document.getElementById('explore-header');
         if (!q) {
-          head.textContent = initialRec.length ? '✨ Đề Xuất Phim Hay Dành Cho Bạn' : '';
+          head.textContent = initialRec.length ? '★ Đề Xuất Phim Hay Dành Cho Bạn' : '';
           box.innerHTML = initialRec.map(it => window.renderMovieCard(it, true)).join('');
           return;
         }
-        head.textContent = `🔍 Kết quả tìm kiếm cho "${q}"`;
+        head.textContent = `Kết quả tìm kiếm cho "${q}"`;
         box.innerHTML = window.renderSkeletonGrid(6);
         try {
           const items = await window.movieApi.search(q);
@@ -308,7 +308,7 @@
       <div class="p-4 md:p-6 animate-screen">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2.5">
-            <button tabindex="0" onclick="window.appRouter.go('home')" class="tv-focusable w-9 h-9 flex items-center justify-center bg-slate-900 border border-slate-800 rounded-xl text-sm">←</button>
+            <button tabindex="0" onclick="window.appRouter.go('home')" class="tv-focusable w-9 h-9 flex items-center justify-center bg-slate-900 border border-slate-800 rounded-xl text-sm">&lt;-</button>
             <h2 class="text-base font-extrabold text-white line-clamp-1">${title}</h2>
           </div>
           <span class="text-xs font-semibold text-slate-400 bg-slate-900 px-3 py-1 rounded-full border border-slate-800 whitespace-nowrap">Trang ${page}</span>
@@ -322,8 +322,8 @@
       document.getElementById('cat-grid').innerHTML = res.items.map(it => window.renderMovieCard(it, true)).join('');
       const pagBox = document.getElementById('cat-pagination');
       pagBox.innerHTML = `
-        ${page > 1 ? `<button tabindex="0" onclick="window.appRouter.openCategory('${type}', '${slug}', '${title}', ${page - 1})" class="tv-focusable px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-semibold">← Trước</button>` : ''}
-        ${res.hasNext ? `<button tabindex="0" onclick="window.appRouter.openCategory('${type}', '${slug}', '${title}', ${page + 1})" class="tv-focusable px-5 py-2.5 bg-amber-500 text-slate-950 rounded-xl text-xs font-black shadow">Trang sau →</button>` : ''}
+        ${page > 1 ? `<button tabindex="0" onclick="window.appRouter.openCategory('${type}', '${slug}', '${title}', ${page - 1})" class="tv-focusable px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-semibold">&lt;- Trước</button>` : ''}
+        ${res.hasNext ? `<button tabindex="0" onclick="window.appRouter.openCategory('${type}', '${slug}', '${title}', ${page + 1})" class="tv-focusable px-5 py-2.5 bg-amber-500 text-slate-950 rounded-xl text-xs font-black shadow">Trang sau -&gt;</button>` : ''}
       `;
     } catch (err) {
       document.getElementById('cat-grid').innerHTML = `<div class="col-span-3 md:col-span-6 text-center text-xs text-red-400 py-6">${err.message}</div>`;
@@ -343,9 +343,9 @@
         <div class="bg-slate-900/80 border border-amber-500/25 rounded-2xl p-4 space-y-3">
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-black text-white">🖥️ Chế Độ Hiển Thị & Điều Khiển</h3>
+              <h3 class="text-sm font-black text-white">Chế Độ Hiển Thị &amp; Điều Khiển</h3>
               <p id="device-mode-label" class="text-[11px] text-amber-400 font-semibold mt-0.5">
-                ${activeDeviceMode === 'tv' ? '📺 Chế độ TV Box (Remote)' : '📱 Chế độ Điện thoại (Cảm ứng)'}
+                ${activeDeviceMode === 'tv' ? 'Chế độ TV Box (Remote)' : 'Chế độ Điện thoại (Cảm ứng)'}
               </p>
             </div>
             <span class="text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full">ADAPTIVE</span>
@@ -353,22 +353,22 @@
           <div class="grid grid-cols-3 gap-2">
             <button tabindex="0" onclick="window.appRouter.setDeviceMode('auto')"
                     class="tv-focusable py-2.5 rounded-xl text-xs font-bold border ${curOverride === 'auto' ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-950 text-slate-300 border-slate-800'}">
-              ⚡ Tự động
+              Tự động
             </button>
             <button tabindex="0" onclick="window.appRouter.setDeviceMode('mobile')"
                     class="tv-focusable py-2.5 rounded-xl text-xs font-bold border ${curOverride === 'mobile' ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-950 text-slate-300 border-slate-800'}">
-              📱 Điện thoại
+              Điện thoại
             </button>
             <button tabindex="0" onclick="window.appRouter.setDeviceMode('tv')"
                     class="tv-focusable py-2.5 rounded-xl text-xs font-bold border ${curOverride === 'tv' ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-950 text-slate-300 border-slate-800'}">
-              📺 TV Box
+              TV Box
             </button>
           </div>
         </div>
 
         <div class="bg-slate-900/75 border border-white/10 rounded-2xl p-4">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-extrabold text-white">🕒 Tiếp Tục Xem (${history.length})</h3>
+            <h3 class="text-sm font-extrabold text-white">Tiếp Tục Xem (${history.length})</h3>
             ${history.length ? `<button tabindex="0" onclick="window.appStorage.clearHistory(); window.showToast('Đã xóa lịch sử'); window.appRouter.go('library')" class="tv-focusable text-[11px] font-semibold text-red-400 px-2 py-1 rounded">Xóa hết</button>` : ''}
           </div>
           ${history.length
@@ -377,17 +377,17 @@
         </div>
 
         <div class="bg-slate-900/75 border border-white/10 rounded-2xl p-4">
-          <h3 class="text-sm font-extrabold text-white mb-3">❤️ Tủ Phim Yêu Thích (${favs.length})</h3>
+          <h3 class="text-sm font-extrabold text-white mb-3">Tủ Phim Yêu Thích (${favs.length})</h3>
           ${favs.length
             ? `<div class="grid grid-cols-3 md:grid-cols-6 gap-3">${favs.map(it => window.renderMovieCard(it, true)).join('')}</div>`
             : `<p class="text-xs text-slate-500 py-2">Nhấn "+ Yêu thích" ở trang phim để lưu và tự động nhận thông báo tập mới.</p>`}
         </div>
 
         <div class="bg-slate-900/75 border border-white/10 rounded-2xl p-4 space-y-3">
-          <p class="text-[11px] text-slate-400">Đồng bộ kho phim hằng ngày: ${lastSync} • Hỗ trợ Remote TV Box & Cảm ứng điện thoại</p>
+          <p class="text-[11px] text-slate-400">Đồng bộ kho phim hằng ngày: ${lastSync} - Hỗ trợ Remote TV Box &amp; Cảm ứng điện thoại</p>
           <button tabindex="0" onclick="window.movieApi.clearCache(); window.showToast('Đang đồng bộ kho phim Rosi Cinema...'); window.appRouter.renderHome(true)"
                   class="tv-focusable w-full py-3 bg-gradient-to-r from-amber-400 to-orange-500 rounded-xl text-xs font-black text-slate-950 shadow">
-            🔄 Cập Nhật Kho Phim Mới Ngay
+            Cập Nhật Kho Phim Mới Ngay
           </button>
         </div>
       </div>
@@ -428,7 +428,7 @@
     stage.classList.toggle('landscape-player', isLandscapeMode);
 
     if (rotateBtn) {
-      rotateBtn.innerHTML = isLandscapeMode ? '📱 Thu nhỏ' : '🔄 Toàn màn hình ngang';
+      rotateBtn.innerHTML = isLandscapeMode ? 'Thu nhỏ' : 'Toàn màn hình ngang';
     }
 
     try {
@@ -465,7 +465,7 @@
     const badge = document.createElement('div');
     badge.id = 'seek-feedback-badge';
     badge.className = `seek-badge-anim absolute top-1/2 -translate-y-1/2 ${isForward ? 'right-8' : 'left-8'} z-40 glass-panel text-amber-400 text-xs font-black px-4 py-2.5 rounded-full border border-amber-500/35 shadow-2xl pointer-events-none`;
-    badge.textContent = isForward ? `⏩ +${deltaSeconds}s` : `⏪ ${deltaSeconds}s`;
+    badge.textContent = isForward ? `+${deltaSeconds}s` : `${deltaSeconds}s`;
     stage.appendChild(badge);
 
     setTimeout(() => badge.remove(), 680);
@@ -581,7 +581,7 @@
                 <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/45"></div>
                 <button tabindex="0" onclick="window.appRouter.playEpisode('${movie.slug}', '${movie.episodes[0].number}')"
                         class="tv-focusable relative z-20 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-xs px-6 py-3 rounded-full shadow-xl shadow-amber-500/35 transition flex items-center gap-1.5">
-                  <span>▶</span> <span>Phát ${movie.episodes[0].name}</span>
+                  <span>●</span> <span>Phát ${movie.episodes[0].name}</span>
                 </button>
               </div>
 
@@ -591,11 +591,11 @@
               <div class="absolute top-3 left-3 right-3 z-30 flex items-center justify-between pointer-events-none">
                 <button tabindex="0" onclick="window.appRouter.closeDetail()"
                         class="tv-focusable pointer-events-auto glass-panel text-white text-xs font-bold px-3.5 py-1.5 rounded-full border border-white/15 transition">
-                  ✕ Đóng
+                  x Đóng
                 </button>
                 <button tabindex="0" id="rotate-watch-btn" onclick="window.appRouter.toggleLandscape()"
                         class="tv-focusable pointer-events-auto glass-panel text-amber-400 text-xs font-bold px-3.5 py-1.5 rounded-full border border-amber-500/30 transition">
-                  🔄 Toàn màn hình ngang
+                  Toàn màn hình ngang
                 </button>
               </div>
             </div>
@@ -603,18 +603,18 @@
             <div class="bg-[#07090e] border-t border-white/10 px-3 py-2 space-y-2">
               <div class="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
                 <div class="flex items-center gap-1.5">
-                  <button tabindex="0" onclick="window.appRouter.seekBy(-10)" class="tv-focusable px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-900 border border-slate-800 text-slate-200">⏪ -10s</button>
-                  <button tabindex="0" onclick="window.appRouter.seekBy(10)" class="tv-focusable px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-900 border border-slate-800 text-slate-200">⏩ +10s</button>
+                  <button tabindex="0" onclick="window.appRouter.seekBy(-10)" class="tv-focusable px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-900 border border-slate-800 text-slate-200">-10s</button>
+                  <button tabindex="0" onclick="window.appRouter.seekBy(10)" class="tv-focusable px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-900 border border-slate-800 text-slate-200">+10s</button>
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <span class="text-[10px] font-extrabold text-slate-400 uppercase whitespace-nowrap">🎬 Chất lượng:</span>
+                  <span class="text-[10px] font-extrabold text-slate-400 uppercase whitespace-nowrap">Chất lượng:</span>
                   <div id="quality-bar" class="flex items-center gap-1.5">
                     <span class="text-[11px] font-semibold text-slate-400 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800">Auto HD</span>
                   </div>
                 </div>
               </div>
               <div class="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                <span class="text-[10px] font-extrabold text-slate-400 uppercase whitespace-nowrap">📐 Tỉ lệ khung:</span>
+                <span class="text-[10px] font-extrabold text-slate-400 uppercase whitespace-nowrap">Tỉ lệ khung:</span>
                 <div class="flex items-center gap-1.5">
                   ${aspectModes.map(m => `
                     <button tabindex="0" data-aspect="${m.id}" onclick="window.appRouter.setAspect('${m.id}')"
@@ -631,11 +631,11 @@
             <div class="flex items-start justify-between gap-3">
               <div>
                 <h1 class="text-lg font-black text-white leading-snug">${movie.title}</h1>
-                <p class="text-xs text-slate-400 mt-0.5">${movie.originalTitle || movie.genre} • ${movie.year}</p>
+                <p class="text-xs text-slate-400 mt-0.5">${movie.originalTitle || movie.genre} - ${movie.year}</p>
               </div>
               <button tabindex="0" id="fav-btn" onclick="window.appRouter.toggleFav()"
                       class="tv-focusable px-3.5 py-2 rounded-xl text-xs font-bold border whitespace-nowrap transition ${isFav ? 'bg-amber-500/20 border-amber-500 text-amber-300' : 'bg-slate-900 border-slate-800 text-slate-200'}">
-                ${isFav ? '❤️ Đã lưu' : '+ Yêu thích'}
+                ${isFav ? 'Đã lưu' : '+ Yêu thích'}
               </button>
             </div>
 
@@ -644,7 +644,7 @@
               <span class="bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-full">${movie.country}</span>
               <span class="bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-full">${movie.duration}</span>
               <span class="bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-full text-slate-400">
-                ${activeDeviceMode === 'tv' ? 'Dùng phím ◀ ▶ trên Remote để tua nhanh' : 'Nhấp 2 lần trái/phải video để tua 10s'}
+                ${activeDeviceMode === 'tv' ? 'Dùng phím Trái / Phải trên Remote để tua nhanh' : 'Nhấp 2 lần trái/phải video để tua 10s'}
               </span>
             </div>
 
@@ -672,7 +672,7 @@
 
             ${relatedMovies.length ? `
               <div class="pt-1">
-                <h3 class="text-xs font-extrabold text-amber-400 uppercase tracking-wider mb-2.5">✨ Đề Xuất Phim Hay Tương Tự</h3>
+                <h3 class="text-xs font-extrabold text-amber-400 uppercase tracking-wider mb-2.5">★ Đề Xuất Phim Hay Tương Tự</h3>
                 <div class="flex gap-3 overflow-x-auto no-scrollbar py-1">
                   ${relatedMovies.map(it => window.renderMovieCard(it, false)).join('')}
                 </div>
@@ -828,7 +828,7 @@
     window.showToast(saved ? 'Đã thêm vào Tủ phim yêu thích' : 'Đã gỡ khỏi Tủ phim');
     const btn = document.getElementById('fav-btn');
     if (btn) {
-      btn.textContent = saved ? '❤️ Đã lưu' : '+ Yêu thích';
+      btn.textContent = saved ? 'Đã lưu' : '+ Yêu thích';
       btn.className = `tv-focusable px-3.5 py-2 rounded-xl text-xs font-bold border whitespace-nowrap transition ${saved ? 'bg-amber-500/20 border-amber-500 text-amber-300' : 'bg-slate-900 border-slate-800 text-slate-200'}`;
     }
   }
