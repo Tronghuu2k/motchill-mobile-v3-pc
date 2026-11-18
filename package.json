@@ -1,8 +1,8 @@
 {
   "name": "rosi-cinema-mobile",
-  "version": "1.1.0",
+  "version": "1.4.2",
   "private": true,
-  "description": "Rosi Cinema v1.1.0 - Mobile-first streaming app for Android phones with 4K Ultra quality selector, portrait idle lock, and #000000 landscape playback.",
+  "description": "Rosi Cinema v1.4.2 - Welcome greeting modal with playful animated GIF/SVG scenes, ~2.8s slow stream failover, HLS priority, instant poster cache, 4K Ultra selector, and #000000 landscape playback.",
   "scripts": {
     "serve": "python3 -m http.server 8080 -d client/src",
     "cap:add:android": "npx cap add android",

@@ -312,18 +312,212 @@ html.is-landscape-playing, body.is-landscape-playing, .player-overlay.is-landsca
 .player-overlay.is-landscape-mode .player-stage, .player-stage:fullscreen, .player-stage:-webkit-full-screen {
   position: fixed; inset: 0; width: 100vw; height: 100dvh; max-height: 100dvh; aspect-ratio: auto; background: #000000; z-index: 90;
 }
-html.is-landscape-playing.needs-css-landscape .player-overlay.is-landscape-mode .player-stage {
+html.is-landscape-playing.needs-css-landscape .player-overlay.is-landscape-mode {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  width: 100dvh;
-  height: 100vw;
-  max-width: none;
-  max-height: none;
-  aspect-ratio: auto;
-  transform: translate(-50%, -50%) rotate(90deg);
-  transform-origin: center center;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
   z-index: 95;
+}
+html.is-landscape-playing.needs-css-landscape .player-overlay.is-landscape-mode .player-stage {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 100dvh !important;
+  height: 100vw !important;
+  max-width: none !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  transform: translate(-50%, -50%) rotate(90deg) !important;
+  transform-origin: center center !important;
+  z-index: 96 !important;
 }
 .player-overlay.is-landscape-mode .vietsub-overlay { bottom: 72px; }
 .player-overlay.is-landscape-mode .player-stage.hud-hidden .vietsub-overlay { bottom: 20px; }
+
+/* v1.3.0 Smooth Home & Fast Player Transitions */
+.main-content, .h-scroll-row, .chip-row {
+  scroll-behavior: smooth;
+  overscroll-behavior-y: contain;
+}
+.h-scroll-row {
+  scroll-snap-type: x proximity;
+}
+.h-scroll-row .movie-card {
+  scroll-snap-align: start;
+}
+.poster-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, rgba(255,255,255,0.02) 25%, rgba(255,255,255,0.07) 45%, rgba(255,255,255,0.02) 65%);
+  background-size: 220% 100%;
+  animation: posterShimmer 1.35s linear infinite;
+  pointer-events: none;
+  opacity: 0.75;
+}
+.poster-img {
+  position: relative;
+  z-index: 1;
+}
+@keyframes posterShimmer {
+  0% { background-position: 140% 0; }
+  100% { background-position: -80% 0; }
+}
+.movie-card {
+  will-change: transform;
+  contain: layout style;
+}
+.player-overlay, .modal-backdrop {
+  will-change: opacity;
+}
+
+/* v1.3.1 Instant Poster Reveal & Cache */
+.poster-wrap.is-loaded::before {
+  opacity: 0;
+  animation: none;
+}
+.poster-img {
+  opacity: 0.72;
+  transition: opacity 0.16s ease-out, transform 0.25s var(--ease-smooth);
+}
+.poster-wrap.is-loaded .poster-img {
+  opacity: 1;
+}
+
+/* v1.4.2 Welcome Greeting Modal & Animated Playful Scenes */
+.welcome-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  background: radial-gradient(circle at 50% 18%, rgba(225, 29, 72, 0.24), rgba(5, 5, 8, 0.92) 68%);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px calc(16px + env(safe-area-inset-right, 0px)) calc(16px + var(--safe-bottom)) calc(16px + env(safe-area-inset-left, 0px));
+  animation: fadeBackdrop 0.22s var(--ease-smooth);
+}
+.welcome-card {
+  width: 100%;
+  max-width: 420px;
+  background: linear-gradient(175deg, rgba(24, 24, 32, 0.98), rgba(13, 13, 18, 0.98));
+  border: 1px solid rgba(251, 113, 133, 0.28);
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  animation: sheetSlideUp 0.26s var(--ease-smooth);
+}
+.welcome-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.welcome-pill {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #fda4af;
+  background: rgba(225, 29, 72, 0.18);
+  border: 1px solid rgba(251, 113, 133, 0.35);
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.welcome-time-tag {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.welcome-title {
+  margin: 0 0 5px;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+.welcome-subtitle {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #d4d4d8;
+  line-height: 1.45;
+}
+.welcome-gif-stage {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  background: #0b0b10;
+  margin-bottom: 10px;
+}
+.welcome-gif-media {
+  width: 100%;
+  height: 158px;
+  object-fit: cover;
+  display: block;
+}
+.welcome-gif-caption {
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f4f4f5;
+  background: rgba(255, 255, 255, 0.03);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+.welcome-gif-switcher {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.welcome-gif-switcher::-webkit-scrollbar {
+  display: none;
+}
+.welcome-gif-chip {
+  flex: 1 1 auto;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.14s var(--ease-smooth), background 0.16s ease, border-color 0.16s ease;
+}
+.welcome-gif-chip:active {
+  transform: scale(0.95);
+}
+.welcome-gif-chip.active {
+  background: linear-gradient(135deg, #fb7185, #e11d48);
+  border-color: transparent;
+  color: #fff;
+}
+.welcome-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.welcome-cta-btn {
+  flex: 1;
+}
+.welcome-skip-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.welcome-skip-label input {
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+}

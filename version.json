@@ -1,7 +1,7 @@
 {
-  "version": "1.1.0",
-  "versionCode": 110,
+  "version": "1.4.2",
+  "versionCode": 142,
   "appName": "Rosi Cinema",
   "platform": "android-phone",
-  "notes": "Rosi Cinema v1.1.0: hidden settings UI, portrait lock when idle, #000000 auto-landscape player, Vietsub-safe frame fit, and 4K Ultra selector."
+  "notes": "Rosi Cinema v1.4.2: welcome modal on app entry with friendly greeting and animated playful GIF/SVG scenes (cinema popcorn, happy cat/clapperboard, enjoy vibes)."
 }

@@ -1,6 +1,12 @@
 (function () {
+  const APP_VERSION = '1.3.0';
   const PRIMARY_API = 'https://phimapi.com';
-  const IMG_CDN = 'https://img.phimapi.com';
+  const IMG_CDNS = [
+    'https://img.phimapi.com',
+    'https://phimimg.com',
+    'https://img.ophim1.com',
+    'https://ophim17.cc'
+  ];
   const STORAGE_KEYS = {
     FAVORITES: 'rosi_cinema_favorites_v1',
     HISTORY: 'rosi_cinema_history_v1',
@@ -9,6 +15,7 @@
     CACHE_PREFIX: 'rosi_cinema_cache_v1_'
   };
   const memoryFallback = new Map();
+  const inflightRequests = new Map();
 
   function readStorage(key, fallback = null) {
     try {
@@ -39,21 +46,15 @@
     } catch (e) {}
   }
 
-  function normalizeImageUrl(url, baseHost = IMG_CDN) {
+  function toHttps(url) {
     if (!url || typeof url !== 'string') return '';
     const t = url.trim().replace(/\\/g, '/');
     if (!t) return '';
     if (t.startsWith('data:image/')) return t;
     if (t.startsWith('https://')) return t;
-    if (t.startsWith('http://')) {
-      return 'https://' + t.slice('http://'.length);
-    }
+    if (t.startsWith('http://')) return 'https://' + t.slice('http://'.length);
     if (t.startsWith('//')) return 'https:' + t;
-    const cleanPath = t.replace(/^\/+/, '');
-    if (cleanPath.startsWith('upload/')) {
-      return `${IMG_CDN}/${cleanPath}`;
-    }
-    return `${baseHost}/${cleanPath}`;
+    return t;
   }
 
   function buildImageCandidates(rawUrls = []) {
@@ -61,24 +62,44 @@
     const seen = new Set();
     const pushUrl = (u) => {
       if (!u || typeof u !== 'string') return;
-      const clean = u.trim();
+      const clean = toHttps(u).trim();
       if (!clean || seen.has(clean)) return;
       seen.add(clean);
       out.push(clean);
     };
+
     rawUrls.forEach((u) => {
       if (!u || typeof u !== 'string') return;
-      const t = u.trim().replace(/\\/g, '/');
+      const t = toHttps(u);
       if (!t) return;
-      pushUrl(normalizeImageUrl(t, IMG_CDN));
-      pushUrl(normalizeImageUrl(t, PRIMARY_API));
-      if (!/^https?:\/\//i.test(t) && !t.startsWith('//')) {
+
+      if (/^https?:\/\//i.test(t)) {
+        pushUrl(t);
+        try {
+          const parsed = new URL(t);
+          const pathAndQuery = `${parsed.pathname}${parsed.search || ''}`;
+          IMG_CDNS.forEach((cdn) => {
+            pushUrl(`${cdn}${pathAndQuery.startsWith('/') ? '' : '/'}${pathAndQuery}`);
+          });
+          if (!parsed.pathname.includes('/upload/')) {
+            const rel = parsed.pathname.replace(/^\/+/, '');
+            IMG_CDNS.forEach((cdn) => {
+              pushUrl(`${cdn}/upload/vod/${rel}${parsed.search || ''}`);
+            });
+          }
+        } catch (_) {}
+      } else {
         const rel = t.replace(/^\/+/, '');
-        if (!rel.startsWith('upload/')) {
-          pushUrl(`${IMG_CDN}/upload/vod/${rel}`);
-        }
+        IMG_CDNS.forEach((cdn) => {
+          pushUrl(`${cdn}/${rel}`);
+          if (!rel.startsWith('upload/')) {
+            pushUrl(`${cdn}/upload/vod/${rel}`);
+          }
+        });
+        pushUrl(`${PRIMARY_API}/${rel}`);
       }
     });
+
     return out;
   }
 
@@ -106,7 +127,7 @@
     };
   }
 
-  async function fetchJsonWithTimeout(url, timeoutMs = 9000) {
+  async function fetchJsonWithTimeout(url, timeoutMs = 6500) {
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
     try {
@@ -122,14 +143,21 @@
     const fullKey = STORAGE_KEYS.CACHE_PREFIX + cacheKey;
     const cached = readStorage(fullKey);
     if (cached && Date.now() - cached.ts < ttlMs) return cached.data;
-    try {
-      const data = await fetchJsonWithTimeout(url);
-      writeStorage(fullKey, { ts: Date.now(), data });
-      return data;
-    } catch (err) {
-      if (cached && cached.data) return cached.data;
-      throw err;
-    }
+    if (inflightRequests.has(fullKey)) return inflightRequests.get(fullKey);
+    const reqPromise = (async () => {
+      try {
+        const data = await fetchJsonWithTimeout(url);
+        writeStorage(fullKey, { ts: Date.now(), data });
+        return data;
+      } catch (err) {
+        if (cached && cached.data) return cached.data;
+        throw err;
+      } finally {
+        inflightRequests.delete(fullKey);
+      }
+    })();
+    inflightRequests.set(fullKey, reqPromise);
+    return reqPromise;
   }
 
   function extractMovieArray(payload) {
@@ -226,7 +254,93 @@
       }
     });
     if (!sources.length) throw new Error('Không tìm thấy nguồn phát.');
-    return { slug, title: detail.movie.title, currentEpisode: activeEp.num, episodes, sources };
+    const deprioritizedHosts = readStorage('rosi_cinema_slow_hosts_v1', {});
+    const sortedSources = sources.slice().sort((a, b) => {
+      const aHls = a.type === 'hls' ? 0 : 1;
+      const bHls = b.type === 'hls' ? 0 : 1;
+      if (aHls !== bHls) return aHls - bHls;
+      let aPen = 0;
+      let bPen = 0;
+      try { aPen = Number(deprioritizedHosts[new URL(a.url).host] || 0); } catch (_) {}
+      try { bPen = Number(deprioritizedHosts[new URL(b.url).host] || 0); } catch (_) {}
+      return aPen - bPen;
+    });
+    return {
+      slug,
+      title: detail.movie.title,
+      movie: detail.movie,
+      currentEpisode: activeEp.num,
+      episodes,
+      sources: sortedSources
+    };
+  }
+
+
+  const warmedPosterUrls = new Set();
+  let preferredCdnOrigin = '';
+
+  function rankUrlByPreferredCdn(url) {
+    if (!preferredCdnOrigin || !url) return url;
+    try {
+      const u = new URL(url);
+      if (u.origin === preferredCdnOrigin) return url;
+    } catch (_) {}
+    return url;
+  }
+
+  function markWorkingCdn(url) {
+    try {
+      const u = new URL(url);
+      if (u.protocol === 'https:' && !u.hostname.includes('phimapi.com')) {
+        preferredCdnOrigin = u.origin;
+      }
+    } catch (_) {}
+  }
+
+  function warmPosterCache(urls = []) {
+    if (typeof Image === 'undefined' || !Array.isArray(urls)) return;
+    let queued = 0;
+    for (let i = 0; i < urls.length && queued < 14; i++) {
+      const u = toHttps(urls[i]);
+      if (!u || u.startsWith('data:') || warmedPosterUrls.has(u)) continue;
+      warmedPosterUrls.add(u);
+      queued += 1;
+      const pre = new Image();
+      pre.decoding = 'async';
+      pre.onload = () => {
+        markWorkingCdn(u);
+        if (typeof pre.decode === 'function') pre.decode().catch(() => {});
+      };
+      pre.src = u;
+    }
+  }
+
+
+  function penalizeSlowStreamUrl(url) {
+    try {
+      const host = new URL(url).host;
+      if (!host) return;
+      const map = readStorage('rosi_cinema_slow_hosts_v1', {});
+      map[host] = Math.min(10, Number(map[host] || 0) + 1);
+      writeStorage('rosi_cinema_slow_hosts_v1', map);
+    } catch (_) {}
+  }
+
+  function rewardFastStreamUrl(url) {
+    try {
+      const host = new URL(url).host;
+      if (!host) return;
+      const map = readStorage('rosi_cinema_slow_hosts_v1', {});
+      if (map[host]) {
+        map[host] = Math.max(0, Number(map[host]) - 1);
+        writeStorage('rosi_cinema_slow_hosts_v1', map);
+      }
+    } catch (_) {}
+  }
+
+  function prefetchMovie(slug) {
+    if (!slug) return;
+    getMovieDetail(slug).catch(() => {});
   }
 
   function getPreferredQuality() {
@@ -351,11 +465,13 @@
   }
 
   const methods = {
+    version: APP_VERSION,
     getHomeSections,
     getCatalog,
     searchMovies,
     getMovieDetail,
     getStream,
+    prefetchMovie,
     getPreferredQuality,
     setPreferredQuality,
     getFavorites,
@@ -370,6 +486,10 @@
     clearSearchHistory,
     clearCache
   };
+  methods.warmPosterCache = warmPosterCache;
+  methods.rankUrlByPreferredCdn = rankUrlByPreferredCdn;
+  methods.penalizeSlowStreamUrl = penalizeSlowStreamUrl;
+  methods.rewardFastStreamUrl = rewardFastStreamUrl;
   window.RosiApi = methods;
   window.apiService = Object.assign(window.apiService || {}, methods);
 })();

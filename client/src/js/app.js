@@ -25,6 +25,7 @@
   };
   let orientationGuardUntil = 0;
   let playerRequestSeq = 0;
+  const enrichedSlugCache = new Map();
   const els = {};
 
   function cacheElements() {
@@ -36,7 +37,7 @@
       'detailModal', 'detailContent', 'playerModal', 'playerMovieTitle', 'playerEpLabel', 'playerStage',
       'videoViewportBox', 'videoElement', 'embedIframe', 'vietsubText', 'seekToast', 'playerMessage',
       'qualityList', 'sourceList', 'episodeList', 'toastBanner', 'hudCurrentTime', 'hudDurationTime',
-      'hudSeekSlider', 'hudPlayPauseBtn', 'hudQualityCycleBtn', 'hudMuteBtn', 'quickSearchBtn'
+      'hudSeekSlider', 'hudPlayPauseBtn', 'hudQualityCycleBtn', 'hudMuteBtn', 'quickSearchBtn', 'welcomeModal', 'welcomeTitle', 'welcomeSubtitle', 'welcomeTimeTag', 'welcomeGifStage', 'welcomeStartBtn', 'welcomeRandomBtn', 'welcomeDontShowToday'
     ].forEach((id) => { els[id] = document.getElementById(id); });
   }
 
@@ -71,8 +72,10 @@
     const seen = new Set();
     const add = (u) => {
       if (!u || typeof u !== 'string') return;
-      const clean = u.trim();
-      if (!clean || clean === FALLBACK_IMG_SVG || seen.has(clean)) return;
+      let clean = u.trim();
+      if (!clean || clean === FALLBACK_IMG_SVG) return;
+      if (clean.startsWith('http://')) clean = 'https://' + clean.slice('http://'.length);
+      if (seen.has(clean)) return;
       seen.add(clean);
       out.push(clean);
     };
@@ -83,13 +86,47 @@
     return out;
   }
 
-  function configureImageElement(imgEl, candidates = []) {
+  function configureImageElement(imgEl, candidates = [], slug = '') {
     if (!imgEl) return;
     const list = collectCandidates(candidates[0], candidates.slice(1));
     imgEl.dataset.candidates = JSON.stringify(list);
     imgEl.dataset.candIdx = '0';
     imgEl.dataset.fbApplied = '0';
+    imgEl.dataset.slug = slug || '';
+    imgEl.dataset.detailFetched = '0';
     imgEl.src = list[0] || FALLBACK_IMG_SVG;
+  }
+
+  async function enrichImgFromDetail(imgEl) {
+    const slug = imgEl?.dataset?.slug;
+    if (!imgEl || !slug || imgEl.dataset.detailFetched === '1') return;
+    imgEl.dataset.detailFetched = '1';
+    try {
+      let extra = enrichedSlugCache.get(slug);
+      if (!extra) {
+        if (typeof api.getMovieDetail !== 'function') return;
+        const detail = await api.getMovieDetail(slug);
+        const m = detail?.movie || {};
+        extra = collectCandidates(m.thumb, [m.poster, m.backdrop], [...(m.thumbCandidates || []), ...(m.backdropCandidates || [])]);
+        enrichedSlugCache.set(slug, extra);
+      }
+      if (!Array.isArray(extra) || !extra.length) return;
+      let currentList = [];
+      try { currentList = JSON.parse(imgEl.dataset.candidates || '[]'); } catch (_) {}
+      const merged = collectCandidates(extra[0], extra.slice(1), currentList);
+      const nextIdx = merged.findIndex((u) => !currentList.includes(u));
+      imgEl.dataset.candidates = JSON.stringify(merged);
+      if (nextIdx >= 0) {
+        imgEl.dataset.candIdx = String(nextIdx);
+        imgEl.dataset.fbApplied = '0';
+        imgEl.src = merged[nextIdx];
+        return;
+      }
+    } catch (_) {}
+    if (imgEl.dataset.fbApplied !== '1') {
+      imgEl.dataset.fbApplied = '1';
+      imgEl.src = FALLBACK_IMG_SVG;
+    }
   }
 
   function handleImgFallback(imgEl) {
@@ -105,6 +142,10 @@
     if (Array.isArray(list) && idx < list.length) {
       imgEl.dataset.candIdx = String(idx);
       imgEl.src = list[idx];
+      return;
+    }
+    if (imgEl.dataset.slug && imgEl.dataset.detailFetched !== '1') {
+      enrichImgFromDetail(imgEl);
       return;
     }
     if (imgEl.dataset.fbApplied === '1') return;
@@ -218,7 +259,7 @@
   function syncBackgroundScrollLock() {
     if (!els.mainContent) return;
     const anyOpen = (els.detailModal && !els.detailModal.classList.contains('hidden')) ||
-      (els.playerModal && !els.playerModal.classList.contains('hidden'));
+      (els.playerModal && !els.playerModal.classList.contains('hidden')) || (els.welcomeModal && !els.welcomeModal.classList.contains('hidden'));
     els.mainContent.classList.toggle('scroll-locked', Boolean(anyOpen));
   }
 
@@ -229,7 +270,7 @@
       document.documentElement.classList.remove('needs-css-landscape');
       return;
     }
-    const isPortraitViewport = window.innerHeight > window.innerWidth;
+    const isPortraitViewport = window.innerHeight >= window.innerWidth;
     document.documentElement.classList.toggle('needs-css-landscape', isPortraitViewport);
   }
 
@@ -275,15 +316,15 @@
     try {
       const target = els.playerStage || els.playerModal;
       const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-      if (target && !fsEl && window.innerWidth > window.innerHeight) {
+      if (target && !fsEl) {
         if (target.requestFullscreen) await target.requestFullscreen();
         else if (target.webkitRequestFullscreen) target.webkitRequestFullscreen();
       }
     } catch (_) {}
 
     syncCssLandscapeFallback();
-    setTimeout(syncCssLandscapeFallback, 250);
-    setTimeout(syncCssLandscapeFallback, 750);
+    setTimeout(syncCssLandscapeFallback, 200);
+    setTimeout(syncCssLandscapeFallback, 600);
 
     const vid = els.videoElement;
     if (vid && !vid.classList.contains('hidden') && vid.paused && !vid.ended) vid.play().catch(() => {});
@@ -317,9 +358,10 @@
     const badgeText = options.badgeText || movie.badge || movie.status || '4K';
     const metaText = options.metaText || (movie.year ? `${movie.year}` : '');
     const progressPct = typeof options.progressPct === 'number' ? options.progressPct : null;
+    const eagerAttr = options.eager ? 'eager' : 'lazy';
     card.innerHTML = `
       <div class="poster-wrap">
-        <img class="poster-img" src="${escapeHtml(FALLBACK_IMG_SVG)}" alt="${escapeHtml(movie.title)}" loading="lazy" />
+        <img class="poster-img" src="${escapeHtml(FALLBACK_IMG_SVG)}" alt="${escapeHtml(movie.title)}" loading="${eagerAttr}" decoding="async" />
         <span class="poster-badge">${escapeHtml(badgeText)}</span>
         ${progressPct !== null ? `<div class="progress-track"><div class="progress-fill" style="width:${Math.min(100, Math.max(0, progressPct))}%"></div></div>` : ''}
       </div>
@@ -327,11 +369,23 @@
         <div class="card-title">${escapeHtml(movie.title)}</div>
         ${metaText ? `<div class="card-meta">${escapeHtml(metaText)}</div>` : ''}
       </div>`;
+    const pWrap = card.querySelector('.poster-wrap');
     const pImg = card.querySelector('.poster-img');
     if (pImg) {
-      configureImageElement(pImg, candidates);
+      pImg.addEventListener('load', () => {
+        if (pImg.src && pImg.src !== FALLBACK_IMG_SVG && pWrap) {
+          pWrap.classList.add('is-loaded');
+          if (typeof pImg.decode === 'function') pImg.decode().catch(() => {});
+        }
+      });
+      configureImageElement(pImg, candidates, movie.slug || '');
       pImg.addEventListener('error', () => handleImgFallback(pImg));
     }
+    const warmMovie = () => {
+      if (movie.slug && typeof api.prefetchMovie === 'function') api.prefetchMovie(movie.slug);
+    };
+    card.addEventListener('pointerenter', warmMovie, { passive: true });
+    card.addEventListener('touchstart', warmMovie, { passive: true });
     card.addEventListener('click', () => (typeof options.onClick === 'function' ? options.onClick() : openMovieDetail(movie.slug)));
     return card;
   }
@@ -353,7 +407,7 @@
       </div>`;
     const hBg = els.heroBanner.querySelector('.hero-bg');
     if (hBg) {
-      configureImageElement(hBg, bgCandidates);
+      configureImageElement(hBg, bgCandidates, hero.slug || '');
       hBg.addEventListener('error', () => handleImgFallback(hBg));
     }
     document.getElementById('heroWatchBtn')?.addEventListener('click', () => openPlayer(hero.slug, '1', hero));
@@ -381,12 +435,32 @@
     try {
       const { hero, latest, series, single } = await api.getHomeSections();
       renderHero(hero);
-      els.latestGrid.innerHTML = '';
-      latest.slice(0, 6).forEach((m) => els.latestGrid.appendChild(createMovieCard(m)));
-      els.seriesRow.innerHTML = '';
-      series.slice(0, 10).forEach((m) => els.seriesRow.appendChild(createMovieCard(m)));
-      els.singleGrid.innerHTML = '';
-      single.slice(0, 6).forEach((m) => els.singleGrid.appendChild(createMovieCard(m)));
+      if (hero?.slug && typeof api.prefetchMovie === 'function') {
+        api.prefetchMovie(hero.slug);
+      }
+      const topLatest = latest.slice(0, 6);
+      const topSeries = series.slice(0, 10);
+      const topSingle = single.slice(0, 6);
+      if (typeof api.warmPosterCache === 'function') {
+        const warmUrls = [];
+        [...topLatest, ...topSeries, ...topSingle].forEach((m) => {
+          if (m.thumb) warmUrls.push(m.thumb);
+          else if (m.poster) warmUrls.push(m.poster);
+        });
+        api.warmPosterCache(warmUrls);
+      }
+
+      const fLatest = document.createDocumentFragment();
+      topLatest.forEach((m) => fLatest.appendChild(createMovieCard(m, { eager: true })));
+      els.latestGrid.replaceChildren(fLatest);
+
+      const fSeries = document.createDocumentFragment();
+      topSeries.forEach((m) => fSeries.appendChild(createMovieCard(m, { eager: true })));
+      els.seriesRow.replaceChildren(fSeries);
+
+      const fSingle = document.createDocumentFragment();
+      topSingle.forEach((m) => fSingle.appendChild(createMovieCard(m)));
+      els.singleGrid.replaceChildren(fSingle);
     } catch (e) {
       els.latestGrid.innerHTML = `<div class="empty-state">Lỗi kết nối</div>`;
     }
@@ -493,7 +567,7 @@
         <div id="detailEpGrid" class="episode-grid">${epHtml}</div>`;
       const dPoster = els.detailContent.querySelector('.detail-poster');
       if (dPoster) {
-        configureImageElement(dPoster, posterCandidates);
+        configureImageElement(dPoster, posterCandidates, movie.slug || '');
         dPoster.addEventListener('error', () => handleImgFallback(dPoster));
       }
       document.getElementById('detailPlayBtn')?.addEventListener('click', () => { closeDetailModal(); openPlayer(movie.slug, (episodes[0]?.num) || '1', movie); });
@@ -546,6 +620,19 @@
     if (els.hudPlayPauseBtn) els.hudPlayPauseBtn.textContent = vid.paused ? '▶' : '❚❚';
   }
 
+  function failoverToNextSource(slowUrl = '', reasonMsg = 'Luồng tải chậm, đang chuyển nguồn...') {
+    const nextIdx = state.player.sourceIndex + 1;
+    if (slowUrl && typeof api.penalizeSlowStreamUrl === 'function') {
+      api.penalizeSlowStreamUrl(slowUrl);
+    }
+    if (nextIdx < (state.player.sources || []).length) {
+      showToast(reasonMsg);
+      playSourceAt(nextIdx);
+      return true;
+    }
+    return false;
+  }
+
   function startStallWatchdog() {
     stopStallWatchdog();
     state.player.lastTime = els.videoElement.currentTime || 0;
@@ -554,14 +641,18 @@
       const vid = els.videoElement;
       if (!vid || vid.classList.contains('hidden') || vid.paused || vid.ended) return;
       const cur = vid.currentTime || 0;
-      if (Math.abs(cur - state.player.lastTime) < 0.25) {
+      if (Math.abs(cur - state.player.lastTime) < 0.2) {
         state.player.stuckTicks += 1;
-        if (state.player.stuckTicks >= 4 && state.player.sourceIndex + 1 < state.player.sources.length) {
+        if (state.player.stuckTicks >= 2) {
           state.player.stuckTicks = 0;
-          playSourceAt(state.player.sourceIndex + 1);
+          const activeSrc = (state.player.sources || [])[state.player.sourceIndex];
+          failoverToNextSource(activeSrc?.url || '', 'Luồng bị đứng, đổi nguồn dự phòng...');
         }
-      } else { state.player.lastTime = cur; state.player.stuckTicks = 0; }
-    }, 2500);
+      } else {
+        state.player.lastTime = cur;
+        state.player.stuckTicks = 0;
+      }
+    }, 1350);
   }
 
   function renderPlayerLists() {
@@ -595,6 +686,7 @@
     const chosen = sources[idx];
     renderPlayerLists();
     destroyHls(); stopStallWatchdog();
+    clearTimeout(els.videoElement._slowStartupTimer);
     els.playerMessage.textContent = 'Đang tải luồng...';
     els.playerMessage.classList.remove('hidden');
     if (els.vietsubText) els.vietsubText.textContent = `Vietsub • ${state.player.episodeLabel}`;
@@ -609,7 +701,19 @@
     els.embedIframe.removeAttribute('src'); els.embedIframe.classList.add('hidden'); els.videoElement.classList.remove('hidden');
     applyQualityToHlsAndVideo(state.player.quality);
     applyFitMode(state.player.aspectMode);
+
+    let readyFired = false;
+    els.videoElement._slowStartupTimer = setTimeout(() => {
+      if (!readyFired && state.player.sourceIndex === idx && idx + 1 < sources.length) {
+        failoverToNextSource(chosen.url, 'Luồng đầu tải chậm (~2.8s), tự đổi nguồn...');
+      }
+    }, 2800);
+
     const onReady = () => {
+      if (readyFired) return;
+      readyFired = true;
+      clearTimeout(els.videoElement._slowStartupTimer);
+      if (typeof api.rewardFastStreamUrl === 'function') api.rewardFastStreamUrl(chosen.url);
       if (resumeAt > 0 && Number.isFinite(els.videoElement.duration) && resumeAt < els.videoElement.duration - 5) {
         try { els.videoElement.currentTime = resumeAt; } catch (_) {}
       }
@@ -620,19 +724,40 @@
       els.playerMessage.classList.add('hidden');
       startStallWatchdog();
     };
+
     if (window.Hls && window.Hls.isSupported() && /\.m3u8/i.test(chosen.url)) {
-      const hls = new window.Hls({ enableWorker: true, lowLatencyMode: false });
+      const hls = new window.Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+        startLevel: state.player.quality === 'auto' ? -1 : undefined,
+        abrEwmaDefaultEstimate: 2500000,
+        maxBufferLength: 24,
+        maxMaxBufferLength: 45,
+        manifestLoadingTimeOut: 2600,
+        levelLoadingTimeOut: 2600,
+        fragLoadingTimeOut: 3200
+      });
       state.player.hls = hls;
       hls.loadSource(chosen.url);
       hls.attachMedia(els.videoElement);
       hls.on(window.Hls.Events.MANIFEST_PARSED, onReady);
       hls.on(window.Hls.Events.ERROR, (_, data) => {
-        if (data?.fatal && idx + 1 < sources.length) playSourceAt(idx + 1);
+        if (data?.fatal) {
+          clearTimeout(els.videoElement._slowStartupTimer);
+          if (idx + 1 < sources.length) {
+            failoverToNextSource(chosen.url, 'Nguồn gặp lỗi, đang chuyển nguồn...');
+          } else {
+            try { hls.startLoad(); } catch (_) {}
+          }
+        }
       });
     } else {
       els.videoElement.src = chosen.url;
       els.videoElement.addEventListener('loadedmetadata', onReady, { once: true });
-      els.videoElement.addEventListener('error', () => { if (idx + 1 < sources.length) playSourceAt(idx + 1); }, { once: true });
+      els.videoElement.addEventListener('error', () => {
+        clearTimeout(els.videoElement._slowStartupTimer);
+        if (idx + 1 < sources.length) failoverToNextSource(chosen.url, 'Nguồn gặp lỗi, đang chuyển nguồn...');
+      }, { once: true });
     }
   }
 
@@ -656,11 +781,12 @@
     els.playerMovieTitle.textContent = state.player.title;
     els.playerStage?.classList.remove('hud-hidden');
     updatePlayerHeaderLabel();
-    els.playerMessage.textContent = 'Đang tải...';
+    els.playerMessage.textContent = 'Đang tải luồng...';
     els.playerMessage.classList.remove('hidden');
     els.playerModal.classList.remove('hidden');
     syncBackgroundScrollLock();
-    await activateAutoLandscapeFullscreen();
+    showHudAndScheduleHide();
+    activateAutoLandscapeFullscreen().catch(() => {});
     if (typeof api.saveWatchProgress === 'function') api.saveWatchProgress(state.player);
     try {
       const streamData = await api.getStream(slug, epNum);
@@ -682,7 +808,7 @@
   async function closePlayer() {
     clearHudHideTimer();
     els.playerStage?.classList.remove('hud-hidden');
-    persistCurrentVideoProgress(); stopStallWatchdog(); stopProgressLoop(); destroyHls();
+    clearTimeout(els.videoElement._slowStartupTimer); persistCurrentVideoProgress(); stopStallWatchdog(); stopProgressLoop(); destroyHls();
     try { els.videoElement.pause(); els.videoElement.removeAttribute('src'); } catch (_) {}
     try { els.embedIframe.removeAttribute('src'); } catch (_) {}
     els.playerModal.classList.add('hidden');
@@ -723,7 +849,92 @@
     else showToast(delta > 0 ? '⏭' : '⏮');
   }
 
+
+  const WELCOME_SCENES = {
+    popcorn: {
+      caption: 'Bắp rang giòn tan — sẵn sàng cày phim thâu đêm chưa?',
+      svg: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='160' viewBox='0 0 420 160'%3E%3Crect width='420' height='160' fill='%2312121a'/%3E%3Ccircle cx='78' cy='42' r='22' fill='%23e11d48' opacity='0.18'%3E%3Canimate attributeName='r' values='18;26;18' dur='2.2s' repeatCount='indefinite'/%3E%3C/circle%3E%3Ccircle cx='345' cy='118' r='28' fill='%23fb7185' opacity='0.14'%3E%3Canimate attributeName='r' values='22;32;22' dur='2.6s' repeatCount='indefinite'/%3E%3C/circle%3E%3Cg transform='translate(210,84)'%3E%3CanimateTransform attributeName='transform' type='translate' values='210,84; 210,79; 210,84' dur='1.3s' repeatCount='indefinite' additive='replace'/%3E%3Ccircle cx='-24' cy='-22' r='11' fill='%23fef08a'/%3E%3Ccircle cx='0' cy='-28' r='12' fill='%23fde047'/%3E%3Ccircle cx='24' cy='-22' r='11' fill='%23fef08a'/%3E%3Ccircle cx='-12' cy='-16' r='10' fill='%23fffbeb'/%3E%3Ccircle cx='12' cy='-16' r='10' fill='%23fffbeb'/%3E%3Cpolygon points='-34,-12 34,-12 24,42 -24,42' fill='%23e11d48'/%3E%3Cpolygon points='-11,-12 11,-12 8,42 -8,42' fill='%23fff1f2'/%3E%3C/g%3E%3Ctext x='210' y='146' text-anchor='middle' fill='%23fda4af' font-family='sans-serif' font-size='13' font-weight='700'%3E🍿 POPCORN TIME • CHILL CÙNG ROSI%3C/text%3E%3C/svg%3E"
+    },
+    clap: {
+      caption: '3... 2... 1... Diễn! Lên sóng phim nét căng nào!',
+      svg: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='160' viewBox='0 0 420 160'%3E%3Crect width='420' height='160' fill='%23101018'/%3E%3Cg transform='translate(210,82)'%3E%3Crect x='-48' y='-14' width='96' height='54' rx='8' fill='%231f202c' stroke='%23fb7185' stroke-width='2.5'/%3E%3Cg%3E%3CanimateTransform attributeName='transform' type='rotate' values='-14 -48 -14; 0 -48 -14; -14 -48 -14' dur='1.2s' repeatCount='indefinite'/%3E%3Crect x='-48' y='-30' width='96' height='16' rx='4' fill='%23e11d48'/%3E%3Cline x1='-26' y1='-30' x2='-16' y2='-14' stroke='%23fff' stroke-width='5'/%3E%3Cline x1='4' y1='-30' x2='14' y2='-14' stroke='%23fff' stroke-width='5'/%3E%3Cline x1='34' y1='-30' x2='44' y2='-14' stroke='%23fff' stroke-width='5'/%3E%3C/g%3E%3Cpolygon points='-8,4 12,13 -8,22' fill='%23fda4af'/%3E%3C/g%3E%3Ctext x='210' y='146' text-anchor='middle' fill='%23fda4af' font-family='sans-serif' font-size='13' font-weight='700'%3E🎬 ACTION • KHAI MÀN PHIM HAY%3C/text%3E%3C/svg%3E"
+    },
+    cat: {
+      caption: 'Mèo hóng đã vào chỗ — hôm nay mình xem phim gì đây?',
+      svg: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='160' viewBox='0 0 420 160'%3E%3Crect width='420' height='160' fill='%2313111a'/%3E%3Cg transform='translate(210,80)'%3E%3CanimateTransform attributeName='transform' type='rotate' values='-4 0 0; 4 0 0; -4 0 0' dur='1.5s' repeatCount='indefinite'/%3E%3Cpolygon points='-34,-18 -20,-48 -6,-24' fill='%23fb7185'/%3E%3Cpolygon points='34,-18 20,-48 6,-24' fill='%23fb7185'/%3E%3Cellipse cx='0' cy='-4' rx='38' ry='30' fill='%23f5f5f7'/%3E%3Ccircle cx='-13' cy='-7' r='5' fill='%2318181b'/%3E%3Ccircle cx='13' cy='-7' r='5' fill='%2318181b'/%3E%3Ccircle cx='-11' cy='-9' r='1.8' fill='%23fff'/%3E%3Ccircle cx='15' cy='-9' r='1.8' fill='%23fff'/%3E%3Cpolygon points='0,1 -5,7 5,7' fill='%23e11d48'/%3E%3Cpath d='M-12,13 Q-6,19 0,13 Q6,19 12,13' fill='none' stroke='%2318181b' stroke-width='2.5' stroke-linecap='round'/%3E%3C/g%3E%3Ctext x='210' y='146' text-anchor='middle' fill='%23fda4af' font-family='sans-serif' font-size='13' font-weight='700'%3E😹 MÈO HÓNG PHIM • CHỌN PHIM NGAY%3C/text%3E%3C/svg%3E"
+    }
+  };
+
+  function getGreetingByHour() {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 12) return { tag: 'Chào buổi sáng', title: 'Chào buổi sáng năng lượng! ☀️', sub: 'Khởi đầu ngày mới bằng một bộ phim nhẹ nhàng hay bom tấn cực cháy?' };
+    if (h >= 12 && h < 18) return { tag: 'Chào buổi chiều', title: 'Chào buổi chiều chill hết cỡ! 🌤️', sub: 'Nghỉ giải lao một chút, mở Rosi Cinema xem phim cực mượt nào!' };
+    if (h >= 18 && h < 23) return { tag: 'Chào buổi tối', title: 'Chào buổi tối xem phim cực đã! 🌙', sub: 'Tắt đèn, bật 4K và tận hưởng những thước phim hấp dẫn nhất tối nay!' };
+    return { tag: 'Cú đêm xem phim', title: 'Cú đêm ghé Rosi Cinema nè! 🦉', sub: 'Đêm khuya yên tĩnh, chọn phim cuốn nhất và nhớ giữ sức khỏe nhé!' };
+  }
+
+  function renderWelcomeScene(sceneKey = 'popcorn') {
+    if (!els.welcomeGifStage) return;
+    const sc = WELCOME_SCENES[sceneKey] || WELCOME_SCENES.popcorn;
+    els.welcomeGifStage.innerHTML = `
+      <img class="welcome-gif-media" src="${escapeHtml(sc.svg)}" alt="${escapeHtml(sc.caption)}" />
+      <div class="welcome-gif-caption">${escapeHtml(sc.caption)}</div>
+    `;
+    document.querySelectorAll('.welcome-gif-chip').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.gif === sceneKey);
+    });
+  }
+
+  function shouldShowWelcomeModal() {
+    try {
+      const hiddenDate = window.localStorage.getItem('rosi_welcome_hide_date_v1');
+      const todayKey = new Date().toISOString().slice(0, 10);
+      return hiddenDate !== todayKey;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function closeWelcomeModal() {
+    if (!els.welcomeModal) return;
+    if (els.welcomeDontShowToday && els.welcomeDontShowToday.checked) {
+      try {
+        window.localStorage.setItem('rosi_welcome_hide_date_v1', new Date().toISOString().slice(0, 10));
+      } catch (_) {}
+    }
+    els.welcomeModal.classList.add('hidden');
+    syncBackgroundScrollLock();
+  }
+
+  function openWelcomeModal() {
+    if (!els.welcomeModal || !shouldShowWelcomeModal()) return;
+    const g = getGreetingByHour();
+    if (els.welcomeTimeTag) els.welcomeTimeTag.textContent = g.tag;
+    if (els.welcomeTitle) els.welcomeTitle.textContent = g.title;
+    if (els.welcomeSubtitle) els.welcomeSubtitle.textContent = g.sub;
+    const keys = Object.keys(WELCOME_SCENES);
+    renderWelcomeScene(keys[Math.floor(Math.random() * keys.length)] || 'popcorn');
+    els.welcomeModal.classList.remove('hidden');
+    syncBackgroundScrollLock();
+  }
+
   function bindEvents() {
+    document.querySelectorAll('.welcome-gif-chip').forEach((btn) => {
+      btn.addEventListener('click', () => renderWelcomeScene(btn.dataset.gif || 'popcorn'));
+    });
+    els.welcomeStartBtn?.addEventListener('click', closeWelcomeModal);
+    els.welcomeRandomBtn?.addEventListener('click', () => {
+      closeWelcomeModal();
+      const cards = Array.from(document.querySelectorAll('#tab-home .movie-card'));
+      if (cards.length) {
+        cards[Math.floor(Math.random() * cards.length)].click();
+      } else {
+        switchTab('tab-catalog');
+      }
+    });
+    els.welcomeModal?.addEventListener('click', (ev) => {
+      if (ev.target === els.welcomeModal) closeWelcomeModal();
+    });
     document.querySelectorAll('.nav-btn').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
     els.quickSearchBtn?.addEventListener('click', () => switchTab('tab-search'));
     document.getElementById('seeMoreLatestBtn')?.addEventListener('click', () => { state.catalog = { type: 'phim-moi', genre: '', country: '', page: 1, totalPages: 1 }; switchTab('tab-catalog'); loadCatalog(); });
@@ -861,9 +1072,11 @@
       if (!ev) return;
       const isPlayerOpen = els.playerModal && !els.playerModal.classList.contains('hidden');
       const isDetailOpen = els.detailModal && !els.detailModal.classList.contains('hidden');
+      const isWelcomeOpen = els.welcomeModal && !els.welcomeModal.classList.contains('hidden');
       if (ev.key === 'Escape') {
         if (isPlayerOpen) { ev.preventDefault(); closePlayer(); }
         else if (isDetailOpen) { ev.preventDefault(); closeDetailModal(); }
+        else if (isWelcomeOpen) { ev.preventDefault(); closeWelcomeModal(); }
         return;
       }
       if (isPlayerOpen && document.activeElement !== els.searchInput) {
@@ -885,6 +1098,6 @@
     });
   }
   document.addEventListener('DOMContentLoaded', async () => {
-    cacheElements(); applyFitMode(0); syncBackgroundScrollLock(); bindEvents(); await lockPortraitWhenIdle(); loadHome();
+    cacheElements(); applyFitMode(0); syncBackgroundScrollLock(); bindEvents(); await lockPortraitWhenIdle(); openWelcomeModal(); loadHome();
   });
 })();
