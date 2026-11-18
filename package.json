@@ -1,8 +1,8 @@
 {
   "name": "rosi-cinema-mobile",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "private": true,
-  "description": "Rosi Cinema v1.4.2 - Welcome greeting modal with playful animated GIF/SVG scenes, ~2.8s slow stream failover, HLS priority, instant poster cache, 4K Ultra selector, and #000000 landscape playback.",
+  "description": "Rosi Cinema v1.4.3 - Fixed home scroll & auto-landscape, welcome greeting modal, ~2.8s slow stream failover, HLS priority, instant poster cache, 4K Ultra selector.",
   "scripts": {
     "serve": "python3 -m http.server 8080 -d client/src",
     "cap:add:android": "npx cap add android",

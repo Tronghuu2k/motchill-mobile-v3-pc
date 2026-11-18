@@ -258,9 +258,15 @@
 
   function syncBackgroundScrollLock() {
     if (!els.mainContent) return;
-    const anyOpen = (els.detailModal && !els.detailModal.classList.contains('hidden')) ||
-      (els.playerModal && !els.playerModal.classList.contains('hidden')) || (els.welcomeModal && !els.welcomeModal.classList.contains('hidden'));
-    els.mainContent.classList.toggle('scroll-locked', Boolean(anyOpen));
+    const detailOpen = Boolean(els.detailModal && !els.detailModal.classList.contains('hidden'));
+    const playerOpen = Boolean(els.playerModal && !els.playerModal.classList.contains('hidden'));
+    const welcomeOpen = Boolean(els.welcomeModal && !els.welcomeModal.classList.contains('hidden'));
+    const anyOpen = detailOpen || playerOpen || welcomeOpen;
+    els.mainContent.classList.toggle('scroll-locked', anyOpen);
+    if (!anyOpen) {
+      document.documentElement.style.overflowY = '';
+      document.body.style.overflowY = '';
+    }
   }
 
   function syncCssLandscapeFallback() {
@@ -270,7 +276,8 @@
       document.documentElement.classList.remove('needs-css-landscape');
       return;
     }
-    const isPortraitViewport = window.innerHeight >= window.innerWidth;
+    const orientType = (screen.orientation && screen.orientation.type) || '';
+    const isPortraitViewport = window.innerHeight > window.innerWidth || orientType.includes('portrait');
     document.documentElement.classList.toggle('needs-css-landscape', isPortraitViewport);
   }
 
@@ -786,7 +793,11 @@
     els.playerModal.classList.remove('hidden');
     syncBackgroundScrollLock();
     showHudAndScheduleHide();
-    activateAutoLandscapeFullscreen().catch(() => {});
+    setTimeout(() => {
+      if (els.playerModal && !els.playerModal.classList.contains('hidden')) {
+        activateAutoLandscapeFullscreen().catch(() => {});
+      }
+    }, 30);
     if (typeof api.saveWatchProgress === 'function') api.saveWatchProgress(state.player);
     try {
       const streamData = await api.getStream(slug, epNum);
@@ -1005,7 +1016,13 @@
       syncTimelineUi();
     });
     els.videoElement?.addEventListener('timeupdate', syncTimelineUi);
-    els.videoElement?.addEventListener('play', () => { syncTimelineUi(); showHudAndScheduleHide(); });
+    els.videoElement?.addEventListener('play', () => {
+      syncTimelineUi();
+      showHudAndScheduleHide();
+      if (els.playerModal && !els.playerModal.classList.contains('hidden') && !els.playerModal.classList.contains('is-landscape-mode')) {
+        activateAutoLandscapeFullscreen().catch(() => {});
+      }
+    });
     els.videoElement?.addEventListener('pause', () => { syncTimelineUi(); clearHudHideTimer(); els.playerStage?.classList.remove('hud-hidden'); });
     els.videoElement?.addEventListener('ended', () => {
       syncTimelineUi();
@@ -1098,6 +1115,16 @@
     });
   }
   document.addEventListener('DOMContentLoaded', async () => {
-    cacheElements(); applyFitMode(0); syncBackgroundScrollLock(); bindEvents(); await lockPortraitWhenIdle(); openWelcomeModal(); loadHome();
+    cacheElements();
+    applyFitMode(0);
+    if (els.welcomeModal) els.welcomeModal.classList.add('hidden');
+    if (els.detailModal) els.detailModal.classList.add('hidden');
+    if (els.playerModal) els.playerModal.classList.add('hidden');
+    syncBackgroundScrollLock();
+    bindEvents();
+    await lockPortraitWhenIdle();
+    syncBackgroundScrollLock();
+    openWelcomeModal();
+    loadHome();
   });
 })();

@@ -1,7 +1,7 @@
 {
-  "version": "1.4.2",
-  "versionCode": 142,
+  "version": "1.4.3",
+  "versionCode": 143,
   "appName": "Rosi Cinema",
   "platform": "android-phone",
-  "notes": "Rosi Cinema v1.4.2: welcome modal on app entry with friendly greeting and animated playful GIF/SVG scenes (cinema popcorn, happy cat/clapperboard, enjoy vibes)."
+  "notes": "Rosi Cinema v1.4.3: fix home vertical scroll lock bug on initial load, ensure reliable auto-landscape on player open, and keep ~2.8s slow stream failover + welcome greeting."
 }

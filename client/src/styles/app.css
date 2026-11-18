@@ -58,6 +58,7 @@ html, body {
   padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 28px);
 }
 .main-content.scroll-locked { overflow: hidden !important; touch-action: none; }
+.main-content:not(.scroll-locked) { overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; touch-action: pan-y pinch-zoom !important; }
 .tab-view { display: none; width: 100%; padding: 12px 14px 16px; }
 .tab-view.active { display: block; animation: tabFadeIn 0.22s var(--ease-smooth); }
 @keyframes tabFadeIn {
@@ -324,8 +325,8 @@ html.is-landscape-playing.needs-css-landscape .player-overlay.is-landscape-mode 
   position: fixed !important;
   top: 50% !important;
   left: 50% !important;
-  width: 100dvh !important;
-  height: 100vw !important;
+  width: 100vmax !important;
+  height: 100vmin !important;
   max-width: none !important;
   max-height: none !important;
   aspect-ratio: auto !important;
