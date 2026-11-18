@@ -16,7 +16,7 @@
     libraryTab: 'favorites',
     currentMovie: null,
     player: {
-      slug: '', title: '', thumb: '', backdrop: '', badge: '4K',
+      slug: '', title: '', thumb: '', backdrop: '', thumbCandidates: [], badge: '4K',
       episodeNum: '1', episodeLabel: 'Tập 1',
       quality: typeof api.getPreferredQuality === 'function' ? api.getPreferredQuality() : 'auto',
       episodes: [], sources: [], sourceIndex: 0, aspectMode: 0,
@@ -48,6 +48,7 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { els.toastBanner.classList.add('hidden'); }, 2000);
   }
+
   function escapeHtml(str = '') {
     return String(str)
       .replace(/&/g, '&amp;')
@@ -55,6 +56,7 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
+
   function stripHtml(str = '') {
     return String(str)
       .replace(/<br\s*\/?>/gi, ' ')
@@ -63,11 +65,53 @@
       .replace(/\s+/g, ' ')
       .trim();
   }
+
+  function collectCandidates(primary, secondary = [], extraList = []) {
+    const out = [];
+    const seen = new Set();
+    const add = (u) => {
+      if (!u || typeof u !== 'string') return;
+      const clean = u.trim();
+      if (!clean || clean === FALLBACK_IMG_SVG || seen.has(clean)) return;
+      seen.add(clean);
+      out.push(clean);
+    };
+    if (Array.isArray(extraList)) extraList.forEach(add);
+    add(primary);
+    if (Array.isArray(secondary)) secondary.forEach(add);
+    else add(secondary);
+    return out;
+  }
+
+  function configureImageElement(imgEl, candidates = []) {
+    if (!imgEl) return;
+    const list = collectCandidates(candidates[0], candidates.slice(1));
+    imgEl.dataset.candidates = JSON.stringify(list);
+    imgEl.dataset.candIdx = '0';
+    imgEl.dataset.fbApplied = '0';
+    imgEl.src = list[0] || FALLBACK_IMG_SVG;
+  }
+
   function handleImgFallback(imgEl) {
-    if (!imgEl || imgEl.dataset.fbApplied === '1') return;
+    if (!imgEl) return;
+    let list = [];
+    try {
+      list = JSON.parse(imgEl.dataset.candidates || '[]');
+    } catch (_) {
+      list = [];
+    }
+    let idx = Number(imgEl.dataset.candIdx || '0');
+    idx += 1;
+    if (Array.isArray(list) && idx < list.length) {
+      imgEl.dataset.candIdx = String(idx);
+      imgEl.src = list[idx];
+      return;
+    }
+    if (imgEl.dataset.fbApplied === '1') return;
     imgEl.dataset.fbApplied = '1';
     imgEl.src = FALLBACK_IMG_SVG;
   }
+
   function formatClock(sec) {
     if (!Number.isFinite(sec) || sec < 0) return '00:00';
     const total = Math.floor(sec);
@@ -75,22 +119,28 @@
     const s = total % 60;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
+
   function currentFitObj() {
     return FIT_MODES[state.player.aspectMode % FIT_MODES.length] || FIT_MODES[0];
   }
+
   function updatePlayerHeaderLabel() {
     if (!els.playerEpLabel) return;
     const qLabel = QUALITY_LABELS[state.player.quality] || 'Tự động';
     const fLabel = currentFitObj().label;
     els.playerEpLabel.textContent = `${state.player.episodeLabel} • ${qLabel} • ${fLabel}`;
-    if (els.hudQualityCycleBtn) els.hudQualityCycleBtn.textContent = state.player.quality === 'auto' ? 'AUTO' : state.player.quality.toUpperCase();
+    if (els.hudQualityCycleBtn) {
+      els.hudQualityCycleBtn.textContent = state.player.quality === 'auto' ? 'AUTO' : state.player.quality.toUpperCase();
+    }
   }
+
   function clearHudHideTimer() {
     if (state.player.hudHideTimer) {
       clearTimeout(state.player.hudHideTimer);
       state.player.hudHideTimer = null;
     }
   }
+
   function showHudAndScheduleHide() {
     clearHudHideTimer();
     els.playerStage?.classList.remove('hud-hidden');
@@ -107,6 +157,7 @@
       }, HUD_AUTO_HIDE_MS);
     }
   }
+
   function applyFitMode(index) {
     state.player.aspectMode = ((index % FIT_MODES.length) + FIT_MODES.length) % FIT_MODES.length;
     const fit = currentFitObj();
@@ -118,6 +169,7 @@
     if (btn) btn.textContent = fit.btnText;
     updatePlayerHeaderLabel();
   }
+
   function applyQualityToHlsAndVideo(quality) {
     const clean = QUALITY_LABELS[quality] ? quality : 'auto';
     state.player.quality = clean;
@@ -162,36 +214,81 @@
     }
     updatePlayerHeaderLabel();
   }
+
   function syncBackgroundScrollLock() {
     if (!els.mainContent) return;
     const anyOpen = (els.detailModal && !els.detailModal.classList.contains('hidden')) ||
       (els.playerModal && !els.playerModal.classList.contains('hidden'));
     els.mainContent.classList.toggle('scroll-locked', Boolean(anyOpen));
   }
+
+  function syncCssLandscapeFallback() {
+    const isLandscapeActive = document.documentElement.classList.contains('is-landscape-playing') &&
+      els.playerModal && !els.playerModal.classList.contains('hidden');
+    if (!isLandscapeActive) {
+      document.documentElement.classList.remove('needs-css-landscape');
+      return;
+    }
+    const isPortraitViewport = window.innerHeight > window.innerWidth;
+    document.documentElement.classList.toggle('needs-css-landscape', isPortraitViewport);
+  }
+
   async function lockPortraitWhenIdle() {
     orientationGuardUntil = Date.now() + 1500;
     document.documentElement.classList.remove('is-landscape-playing');
+    document.documentElement.classList.remove('needs-css-landscape');
     els.playerModal?.classList.remove('is-landscape-mode');
     try {
       const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
       if (fsEl && document.exitFullscreen) await document.exitFullscreen();
     } catch (e) {}
-    if (screen.orientation && screen.orientation.lock) {
-      try { await screen.orientation.lock('portrait-primary'); return; } catch (e) { try { await screen.orientation.lock('portrait'); return; } catch (_) {} }
-    }
     const capO = window.Capacitor?.Plugins?.ScreenOrientation;
-    if (capO?.lock) { try { await capO.lock({ orientation: 'portrait' }); } catch (_) {} }
+    if (capO?.lock) {
+      try { await capO.lock({ orientation: 'portrait' }); } catch (_) {}
+    }
+    if (screen.orientation && screen.orientation.lock) {
+      try { await screen.orientation.lock('portrait-primary'); return; } catch (e) {
+        try { await screen.orientation.lock('portrait'); return; } catch (_) {}
+      }
+    }
   }
+
   async function activateAutoLandscapeFullscreen() {
-    orientationGuardUntil = Date.now() + 1800;
+    orientationGuardUntil = Date.now() + 2000;
     document.documentElement.classList.add('is-landscape-playing');
     els.playerModal?.classList.add('is-landscape-mode');
-    if (screen.orientation && screen.orientation.lock) { try { await screen.orientation.lock('landscape'); } catch (_) {} }
+    syncCssLandscapeFallback();
+
     const capO = window.Capacitor?.Plugins?.ScreenOrientation;
-    if (capO?.lock) { try { await capO.lock({ orientation: 'landscape' }); } catch (_) {} }
+    if (capO?.lock) {
+      try { await capO.lock({ orientation: 'landscape' }); } catch (_) {
+        try { await capO.lock({ orientation: 'landscape-primary' }); } catch (_) {}
+      }
+    }
+
+    if (screen.orientation && screen.orientation.lock) {
+      try { await screen.orientation.lock('landscape'); } catch (_) {
+        try { await screen.orientation.lock('landscape-primary'); } catch (_) {}
+      }
+    }
+
+    try {
+      const target = els.playerStage || els.playerModal;
+      const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+      if (target && !fsEl && window.innerWidth > window.innerHeight) {
+        if (target.requestFullscreen) await target.requestFullscreen();
+        else if (target.webkitRequestFullscreen) target.webkitRequestFullscreen();
+      }
+    } catch (_) {}
+
+    syncCssLandscapeFallback();
+    setTimeout(syncCssLandscapeFallback, 250);
+    setTimeout(syncCssLandscapeFallback, 750);
+
     const vid = els.videoElement;
     if (vid && !vid.classList.contains('hidden') && vid.paused && !vid.ended) vid.play().catch(() => {});
   }
+
   async function restorePortraitOrientation() {
     await lockPortraitWhenIdle();
     const vid = els.videoElement;
@@ -199,6 +296,7 @@
       vid.play().catch(() => {});
     }
   }
+
   function switchTab(tabId) {
     state.activeTab = tabId;
     document.querySelectorAll('.tab-view').forEach((v) => v.classList.toggle('active', v.id === tabId));
@@ -211,16 +309,17 @@
       setTimeout(() => els.searchInput?.focus(), 60);
     }
   }
+
   function createMovieCard(movie, options = {}) {
     const card = document.createElement('div');
     card.className = 'movie-card';
-    const imgSrc = movie.thumb || movie.poster || '';
+    const candidates = collectCandidates(movie.thumb, movie.poster, movie.thumbCandidates);
     const badgeText = options.badgeText || movie.badge || movie.status || '4K';
     const metaText = options.metaText || (movie.year ? `${movie.year}` : '');
     const progressPct = typeof options.progressPct === 'number' ? options.progressPct : null;
     card.innerHTML = `
       <div class="poster-wrap">
-        <img class="poster-img" src="${escapeHtml(imgSrc || FALLBACK_IMG_SVG)}" alt="${escapeHtml(movie.title)}" loading="lazy" />
+        <img class="poster-img" src="${escapeHtml(FALLBACK_IMG_SVG)}" alt="${escapeHtml(movie.title)}" loading="lazy" />
         <span class="poster-badge">${escapeHtml(badgeText)}</span>
         ${progressPct !== null ? `<div class="progress-track"><div class="progress-fill" style="width:${Math.min(100, Math.max(0, progressPct))}%"></div></div>` : ''}
       </div>
@@ -229,16 +328,20 @@
         ${metaText ? `<div class="card-meta">${escapeHtml(metaText)}</div>` : ''}
       </div>`;
     const pImg = card.querySelector('.poster-img');
-    if (pImg) pImg.addEventListener('error', () => handleImgFallback(pImg), { once: true });
+    if (pImg) {
+      configureImageElement(pImg, candidates);
+      pImg.addEventListener('error', () => handleImgFallback(pImg));
+    }
     card.addEventListener('click', () => (typeof options.onClick === 'function' ? options.onClick() : openMovieDetail(movie.slug)));
     return card;
   }
+
   function renderHero(hero) {
     if (!els.heroBanner) return;
     if (!hero) { els.heroBanner.innerHTML = `<div class="empty-state">Đang tải...</div>`; return; }
-    const bg = hero.backdrop || hero.thumb || '';
+    const bgCandidates = collectCandidates(hero.backdrop, hero.thumb, hero.backdropCandidates);
     els.heroBanner.innerHTML = `
-      ${bg ? `<img class="hero-bg" src="${escapeHtml(bg)}" alt="${escapeHtml(hero.title)}" />` : ''}
+      <img class="hero-bg" src="${escapeHtml(FALLBACK_IMG_SVG)}" alt="${escapeHtml(hero.title)}" />
       <div class="hero-overlay">
         <span class="hero-tag">${escapeHtml(hero.status || '4K')}</span>
         <h1 class="hero-title">${escapeHtml(hero.title)}</h1>
@@ -249,10 +352,14 @@
         </div>
       </div>`;
     const hBg = els.heroBanner.querySelector('.hero-bg');
-    if (hBg) hBg.addEventListener('error', () => handleImgFallback(hBg), { once: true });
+    if (hBg) {
+      configureImageElement(hBg, bgCandidates);
+      hBg.addEventListener('error', () => handleImgFallback(hBg));
+    }
     document.getElementById('heroWatchBtn')?.addEventListener('click', () => openPlayer(hero.slug, '1', hero));
     document.getElementById('heroDetailBtn')?.addEventListener('click', () => openMovieDetail(hero.slug));
   }
+
   function renderContinueWatching() {
     const history = typeof api.getWatchHistory === 'function' ? api.getWatchHistory() : [];
     if (!history.length) { els.continueSection.classList.add('hidden'); return; }
@@ -268,6 +375,7 @@
       }));
     });
   }
+
   async function loadHome() {
     renderContinueWatching();
     try {
@@ -283,6 +391,7 @@
       els.latestGrid.innerHTML = `<div class="empty-state">Lỗi kết nối</div>`;
     }
   }
+
   async function loadCatalog() {
     els.catalogGrid.innerHTML = `<div class="empty-state">Đang tải...</div>`;
     try {
@@ -297,6 +406,7 @@
       res.items.forEach((m) => els.catalogGrid.appendChild(createMovieCard(m)));
     } catch (e) { els.catalogGrid.innerHTML = `<div class="empty-state">Lỗi</div>`; }
   }
+
   function renderSearchHistory() {
     const list = typeof api.getSearchHistory === 'function' ? api.getSearchHistory() : [];
     if (!list.length) { els.searchHistoryWrap.classList.add('hidden'); return; }
@@ -309,6 +419,7 @@
       els.searchHistoryChips.appendChild(b);
     });
   }
+
   async function runSearch(q) {
     const clean = (q || '').trim();
     if (!clean) {
@@ -325,6 +436,7 @@
       res.items.forEach((m) => els.searchResultsGrid.appendChild(createMovieCard(m)));
     } catch (e) { els.searchResultsGrid.innerHTML = `<div class="empty-state">Lỗi</div>`; }
   }
+
   function renderLibrary() {
     const favs = typeof api.getFavorites === 'function' ? api.getFavorites() : [];
     const hist = typeof api.getWatchHistory === 'function' ? api.getWatchHistory() : [];
@@ -351,6 +463,7 @@
       }
     });
   }
+
   async function openMovieDetail(slug) {
     if (!slug) return;
     els.detailContent.innerHTML = `<div class="empty-state">Đang tải...</div>`;
@@ -360,11 +473,12 @@
       const { movie, episodes } = await api.getMovieDetail(slug);
       state.currentMovie = movie;
       const fav = typeof api.isFavorite === 'function' ? api.isFavorite(movie.slug) : false;
+      const posterCandidates = collectCandidates(movie.thumb, movie.poster, movie.thumbCandidates);
       const epHtml = (episodes.length ? episodes : [{ num: '1', label: 'Tập 1' }])
         .map((ep) => `<button class="ep-btn" type="button" data-ep="${escapeHtml(ep.num)}">${escapeHtml(ep.label)}</button>`).join('');
       els.detailContent.innerHTML = `
         <div class="detail-hero">
-          ${movie.thumb ? `<img class="detail-poster" src="${escapeHtml(movie.thumb)}" alt="${escapeHtml(movie.title)}" />` : ''}
+          <img class="detail-poster" src="${escapeHtml(FALLBACK_IMG_SVG)}" alt="${escapeHtml(movie.title)}" />
           <div>
             <h2 class="detail-title">${escapeHtml(movie.title)}</h2>
             <div class="detail-meta">${escapeHtml(movie.status || '4K')}${movie.year ? ` • ${movie.year}` : ''}</div>
@@ -378,7 +492,10 @@
         <div class="sub-label">${episodes.length || 1} tập</div>
         <div id="detailEpGrid" class="episode-grid">${epHtml}</div>`;
       const dPoster = els.detailContent.querySelector('.detail-poster');
-      if (dPoster) dPoster.addEventListener('error', () => handleImgFallback(dPoster), { once: true });
+      if (dPoster) {
+        configureImageElement(dPoster, posterCandidates);
+        dPoster.addEventListener('error', () => handleImgFallback(dPoster));
+      }
       document.getElementById('detailPlayBtn')?.addEventListener('click', () => { closeDetailModal(); openPlayer(movie.slug, (episodes[0]?.num) || '1', movie); });
       document.getElementById('detailFavBtn')?.addEventListener('click', (ev) => {
         const added = typeof api.toggleFavorite === 'function' ? api.toggleFavorite(movie) : false;
@@ -394,20 +511,30 @@
       });
     } catch (e) { els.detailContent.innerHTML = `<div class="empty-state">Lỗi</div>`; }
   }
+
   function closeDetailModal() { els.detailModal.classList.add('hidden'); syncBackgroundScrollLock(); }
   function destroyHls() { if (state.player.hls) { try { state.player.hls.destroy(); } catch (_) {} state.player.hls = null; } }
   function stopStallWatchdog() { if (state.player.watchdogTimer) { clearInterval(state.player.watchdogTimer); state.player.watchdogTimer = null; } state.player.stuckTicks = 0; }
   function stopProgressLoop() { if (state.player.progressTimer) { clearInterval(state.player.progressTimer); state.player.progressTimer = null; } }
+
   function persistCurrentVideoProgress() {
     if (!state.player.slug || typeof api.saveWatchProgress !== 'function') return;
     const vid = els.videoElement;
     const ok = vid && !vid.classList.contains('hidden') && Number.isFinite(vid.currentTime);
     api.saveWatchProgress({
-      slug: state.player.slug, title: state.player.title, thumb: state.player.thumb, backdrop: state.player.backdrop, badge: state.player.badge,
-      episodeNum: state.player.episodeNum, episodeLabel: state.player.episodeLabel,
-      currentTime: ok ? vid.currentTime : 0, duration: ok && Number.isFinite(vid.duration) ? vid.duration : 0
+      slug: state.player.slug,
+      title: state.player.title,
+      thumb: state.player.thumb,
+      backdrop: state.player.backdrop,
+      thumbCandidates: state.player.thumbCandidates,
+      badge: state.player.badge,
+      episodeNum: state.player.episodeNum,
+      episodeLabel: state.player.episodeLabel,
+      currentTime: ok ? vid.currentTime : 0,
+      duration: ok && Number.isFinite(vid.duration) ? vid.duration : 0
     });
   }
+
   function syncTimelineUi() {
     const vid = els.videoElement;
     if (!vid) return;
@@ -418,6 +545,7 @@
     if (els.hudSeekSlider && dur > 0) els.hudSeekSlider.value = String(Math.round((cur / dur) * 1000));
     if (els.hudPlayPauseBtn) els.hudPlayPauseBtn.textContent = vid.paused ? '▶' : '❚❚';
   }
+
   function startStallWatchdog() {
     stopStallWatchdog();
     state.player.lastTime = els.videoElement.currentTime || 0;
@@ -435,6 +563,7 @@
       } else { state.player.lastTime = cur; state.player.stuckTicks = 0; }
     }, 2500);
   }
+
   function renderPlayerLists() {
     els.sourceList.innerHTML = '';
     state.player.sources.forEach((src, idx) => {
@@ -457,6 +586,7 @@
     }
     updatePlayerHeaderLabel();
   }
+
   function playSourceAt(index) {
     const sources = state.player.sources || [];
     if (!sources.length) return;
@@ -505,6 +635,7 @@
       els.videoElement.addEventListener('error', () => { if (idx + 1 < sources.length) playSourceAt(idx + 1); }, { once: true });
     }
   }
+
   async function openPlayer(slug, episodeNum = '1', meta = {}) {
     if (!slug) return;
     const reqId = ++playerRequestSeq;
@@ -512,9 +643,14 @@
     const epNum = String(episodeNum || '1');
     state.player.slug = slug;
     state.player.title = meta.title || state.currentMovie?.title || slug;
-    state.player.thumb = meta.thumb || '';
-    state.player.backdrop = meta.backdrop || '';
-    state.player.badge = meta.badge || '4K';
+    state.player.thumb = meta.thumb || state.currentMovie?.thumb || '';
+    state.player.backdrop = meta.backdrop || state.currentMovie?.backdrop || '';
+    state.player.thumbCandidates = collectCandidates(
+      state.player.thumb,
+      state.player.backdrop,
+      meta.thumbCandidates || state.currentMovie?.thumbCandidates
+    );
+    state.player.badge = meta.badge || state.currentMovie?.status || '4K';
     state.player.episodeNum = epNum;
     state.player.episodeLabel = /^\d+$/.test(epNum) ? `Tập ${epNum}` : epNum;
     els.playerMovieTitle.textContent = state.player.title;
@@ -542,6 +678,7 @@
       els.playerMessage.classList.remove('hidden');
     }
   }
+
   async function closePlayer() {
     clearHudHideTimer();
     els.playerStage?.classList.remove('hud-hidden');
@@ -554,6 +691,7 @@
     renderContinueWatching();
     if (state.activeTab === 'tab-library') renderLibrary();
   }
+
   function seekBy(sec) {
     const vid = els.videoElement;
     if (!vid || vid.classList.contains('hidden')) return;
@@ -564,16 +702,19 @@
     clearTimeout(els.seekToast._t);
     els.seekToast._t = setTimeout(() => els.seekToast.classList.add('hidden'), 600);
   }
+
   function cycleAspectRatio() {
     applyFitMode(state.player.aspectMode + 1);
     showToast(`⛶ ${currentFitObj().label}`);
   }
+
   function cycleQualityQuick() {
     const idx = QUALITY_ORDER.indexOf(state.player.quality);
     const nextQ = QUALITY_ORDER[(idx + 1) % QUALITY_ORDER.length];
     applyQualityToHlsAndVideo(nextQ);
     showToast(QUALITY_LABELS[nextQ] || nextQ);
   }
+
   function stepEpisode(delta) {
     const eps = state.player.episodes || [];
     const idx = eps.findIndex((ep) => String(ep.num) === String(state.player.episodeNum));
@@ -581,6 +722,7 @@
     if (nextIdx >= 0 && nextIdx < eps.length) openPlayer(state.player.slug, eps[nextIdx].num, state.player);
     else showToast(delta > 0 ? '⏭' : '⏮');
   }
+
   function bindEvents() {
     document.querySelectorAll('.nav-btn').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
     els.quickSearchBtn?.addEventListener('click', () => switchTab('tab-search'));
@@ -691,6 +833,7 @@
       const open = els.playerModal && !els.playerModal.classList.contains('hidden');
       const vid = els.videoElement;
       if (!open) { lockPortraitWhenIdle(); return; }
+      syncCssLandscapeFallback();
       if (vid && !vid.classList.contains('hidden') && vid.paused && !vid.ended) {
         setTimeout(() => { if (!vid.ended && els.playerModal && !els.playerModal.classList.contains('hidden')) vid.play().catch(() => {}); }, 140);
       }
