@@ -1,64 +1,215 @@
 <!DOCTYPE html>
-<html lang="vi" class="dark">
+<html lang="vi">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#141414" />
-  <title>Rosi Cinema</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15"></script>
-  <link rel="stylesheet" href="styles/input.css" />
+  <meta name="theme-color" content="#07070a" />
+  <title>Rosi Cinema (v1.1.0)</title>
+  <link rel="stylesheet" href="styles/app.css" />
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
 </head>
-<body class="bg-[#141414] text-white font-sans antialiased selection:bg-[#e50914]/35">
+<body>
+  <div id="appShell" class="app-shell">
+    <header class="top-header">
+      <div class="brand-wrap">
+        <span class="brand-badge">ROSI</span>
+        <span class="brand-title">Cinema</span>
+        <span class="version-pill">v1.1.0 • 4K</span>
+      </div>
+      <div class="header-actions">
+        <button id="quickSearchBtn" class="header-icon-btn" type="button" aria-label="Tìm kiếm nhanh" title="Tìm kiếm">⌕</button>
+      </div>
+    </header>
 
-  <header id="mobile-header" class="sticky top-0 z-30 nf-glass border-b border-neutral-800/80 px-4 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-2">
-      <span class="font-black tracking-wider text-lg text-[#e50914]">ROSI<span class="text-white"> CINEMA</span></span>
+    <main id="mainContent" class="main-content">
+      <section id="tab-home" class="tab-view active" aria-label="Trang chủ">
+        <div id="heroBanner" class="hero-banner"></div>
+        <div id="continueSection" class="section-block hidden">
+          <div class="section-head">
+            <h2 class="section-title">Tiếp tục xem</h2>
+            <button id="clearHistoryBtn" class="link-btn" type="button">Xóa</button>
+          </div>
+          <div id="continueRow" class="h-scroll-row"></div>
+        </div>
+        <div class="section-block">
+          <div class="section-head">
+            <h2 class="section-title">Mới cập nhật</h2>
+            <button id="seeMoreLatestBtn" class="link-btn" type="button">Tất cả</button>
+          </div>
+          <div id="latestGrid" class="movie-grid"></div>
+        </div>
+        <div class="section-block">
+          <div class="section-head">
+            <h2 class="section-title">Phim bộ</h2>
+            <button id="seeMoreSeriesBtn" class="link-btn" type="button">Tất cả</button>
+          </div>
+          <div id="seriesRow" class="h-scroll-row"></div>
+        </div>
+        <div class="section-block">
+          <div class="section-head">
+            <h2 class="section-title">Phim lẻ</h2>
+            <button id="seeMoreMoviesBtn" class="link-btn" type="button">Tất cả</button>
+          </div>
+          <div id="singleGrid" class="movie-grid"></div>
+        </div>
+      </section>
+
+      <section id="tab-catalog" class="tab-view" aria-label="Danh mục">
+        <div class="filter-panel">
+          <div id="typeChips" class="chip-row">
+            <button class="chip active" type="button" data-type="phim-moi">Tất cả</button>
+            <button class="chip" type="button" data-type="phim-bo">Phim bộ</button>
+            <button class="chip" type="button" data-type="phim-le">Phim lẻ</button>
+            <button class="chip" type="button" data-type="hoat-hinh">Hoạt hình</button>
+            <button class="chip" type="button" data-type="tv-shows">TV Shows</button>
+          </div>
+          <div class="select-row">
+            <select id="genreSelect" class="filter-select" aria-label="Thể loại">
+              <option value="">Thể loại</option>
+              <option value="hanh-dong">Hành động</option>
+              <option value="tinh-cam">Tình cảm</option>
+              <option value="hai-huoc">Hài hước</option>
+              <option value="kinh-di">Kinh dị</option>
+              <option value="co-trang">Cổ trang</option>
+              <option value="vien-tuong">Viễn tưởng</option>
+              <option value="tam-ly">Tâm lý</option>
+              <option value="phieu-luu">Phiêu lưu</option>
+            </select>
+            <select id="countrySelect" class="filter-select" aria-label="Quốc gia">
+              <option value="">Quốc gia</option>
+              <option value="trung-quoc">Trung Quốc</option>
+              <option value="han-quoc">Hàn Quốc</option>
+              <option value="au-my">Âu Mỹ</option>
+              <option value="nhat-ban">Nhật Bản</option>
+              <option value="thai-lan">Thái Lan</option>
+              <option value="viet-nam">Việt Nam</option>
+            </select>
+          </div>
+        </div>
+        <div id="catalogGrid" class="movie-grid"></div>
+        <div class="pagination-bar">
+          <button id="prevPageBtn" class="page-btn" type="button">←</button>
+          <span id="pageIndicator" class="page-indicator">1</span>
+          <button id="nextPageBtn" class="page-btn" type="button">→</button>
+        </div>
+      </section>
+
+      <section id="tab-search" class="tab-view" aria-label="Tìm kiếm">
+        <form id="searchForm" class="search-form">
+          <input id="searchInput" class="search-input" type="search" placeholder="Tìm phim..." autocomplete="off" />
+          <button id="clearSearchBtn" class="search-clear" type="button" aria-label="Xóa từ khóa" title="Xóa">✕</button>
+          <button class="search-submit" type="submit">⌕</button>
+        </form>
+        <div id="searchHistoryWrap" class="history-wrap hidden">
+          <div class="section-head">
+            <span class="section-subtitle">Gần đây</span>
+            <button id="clearSearchHistoryBtn" class="link-btn" type="button">Xóa</button>
+          </div>
+          <div id="searchHistoryChips" class="chip-row"></div>
+        </div>
+        <div id="searchResultsGrid" class="movie-grid"></div>
+      </section>
+
+      <section id="tab-library" class="tab-view" aria-label="Tủ phim">
+        <div class="library-top-row">
+          <div class="chip-row lib-tabs">
+            <button id="libFavTab" class="chip active" type="button">♡ (<span id="favCount">0</span>)</button>
+            <button id="libHistTab" class="chip" type="button">▶ (<span id="histCount">0</span>)</button>
+          </div>
+          <button id="clearCurrentLibBtn" class="link-btn" type="button">Xóa mục</button>
+        </div>
+        <div id="libraryGrid" class="movie-grid"></div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Điều hướng">
+      <button class="nav-btn active" type="button" data-tab="tab-home"><span class="nav-ico">⌂</span><span class="nav-lbl">Trang chủ</span></button>
+      <button class="nav-btn" type="button" data-tab="tab-catalog"><span class="nav-ico">⊞</span><span class="nav-lbl">Danh mục</span></button>
+      <button class="nav-btn" type="button" data-tab="tab-search"><span class="nav-ico">⌕</span><span class="nav-lbl">Tìm kiếm</span></button>
+      <button class="nav-btn" type="button" data-tab="tab-library"><span class="nav-ico">♡</span><span class="nav-lbl">Tủ phim</span></button>
+    </nav>
+  </div>
+
+  <div id="detailModal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="sheet-panel">
+      <button id="closeDetailBtn" class="modal-close-btn" type="button" aria-label="Đóng">✕</button>
+      <div id="detailContent"></div>
     </div>
-    <div class="flex items-center gap-2">
-      <button onclick="window.appRouter.go('topweek')"
-              class="text-neutral-200 text-xs font-bold px-3 py-1.5 rounded bg-[#222222] border border-neutral-700 transition">
-        Top Tuần
-      </button>
-      <button onclick="window.appRouter.go('explore')"
-              class="text-neutral-200 text-xs font-semibold px-3 py-1.5 rounded bg-[#222222] border border-neutral-700 transition">
-        Tìm kiếm
-      </button>
+  </div>
+
+  <div id="playerModal" class="player-overlay hidden" role="dialog" aria-modal="true">
+    <div id="playerStage" class="player-stage">
+      <div id="playerTopHud" class="player-top-hud">
+        <button id="closePlayerBtn" class="hud-icon-btn" type="button" title="Đóng">✕</button>
+        <div class="hud-title-wrap">
+          <div id="playerMovieTitle" class="hud-movie-title">Đang tải...</div>
+          <div id="playerEpLabel" class="hud-ep-label">Tập 1 • Tự động • Vừa</div>
+        </div>
+        <button id="toggleOrientationBtn" class="hud-icon-btn" type="button" title="Xoay">↻</button>
+      </div>
+
+      <div id="videoViewportBox" class="video-viewport-box">
+        <video id="videoElement" class="video-el" playsinline webkit-playsinline preload="metadata"></video>
+        <iframe id="embedIframe" class="embed-el hidden" allowfullscreen allow="autoplay; fullscreen; encrypted-media"></iframe>
+        <div id="vietsubOverlay" class="vietsub-overlay" aria-live="polite">
+          <span id="vietsubText" class="vietsub-text">Vietsub • Đang phát</span>
+        </div>
+      </div>
+
+      <div id="seekToast" class="seek-toast hidden"></div>
+      <div id="playerMessage" class="player-message hidden"></div>
+
+      <div id="playerBottomHud" class="player-bottom-hud">
+        <div class="hud-progress-row">
+          <span id="hudCurrentTime" class="hud-time-txt">00:00</span>
+          <input id="hudSeekSlider" class="hud-seek-slider" type="range" min="0" max="1000" value="0" step="1" aria-label="Tua" />
+          <span id="hudDurationTime" class="hud-time-txt">00:00</span>
+        </div>
+
+        <div class="hud-corner-controls">
+          <div class="hud-group-left">
+            <button id="hudPlayPauseBtn" class="hud-sym-btn primary-sym" type="button" title="Phát/Tạm dừng">❚❚</button>
+            <button id="rewind10Btn" class="hud-sym-btn" type="button" title="-10s">⏪</button>
+            <button id="forward10Btn" class="hud-sym-btn" type="button" title="+10s">⏩</button>
+            <button id="prevEpBtn" class="hud-sym-btn" type="button" title="Tập trước">⏮</button>
+            <button id="nextEpBtn" class="hud-sym-btn" type="button" title="Tập sau">⏭</button>
+          </div>
+          <div class="hud-group-right">
+            <button id="aspectRatioBtn" class="hud-sym-btn" type="button" title="Khung hình">⛶ Vừa</button>
+            <button id="hudQualityCycleBtn" class="hud-sym-btn accent-sym" type="button" title="Chất lượng">4K</button>
+            <button id="hudMuteBtn" class="hud-sym-btn" type="button" title="Âm thanh">🔊</button>
+            <button id="exitLandscapeBtn" class="hud-sym-btn" type="button" title="Khóa dọc">⟲</button>
+          </div>
+        </div>
+      </div>
     </div>
-  </header>
 
-  <main id="main-view" class="min-h-screen pb-20"></main>
+    <div class="player-controls-panel">
+      <div class="sub-block">
+        <div class="sub-label">Chất lượng</div>
+        <div id="qualityList" class="chip-row">
+          <button class="chip active" type="button" data-quality="auto">Tự động</button>
+          <button class="chip" type="button" data-quality="4k">4K Ultra</button>
+          <button class="chip" type="button" data-quality="1080p">1080p</button>
+          <button class="chip" type="button" data-quality="720p">720p</button>
+          <button class="chip" type="button" data-quality="480p">480p</button>
+        </div>
+      </div>
 
-  <div id="detail-modal" class="hidden fixed inset-0 z-50 bg-[#141414] overflow-hidden"></div>
+      <div class="sub-block">
+        <div class="sub-label">Nguồn phát</div>
+        <div id="sourceList" class="chip-row"></div>
+      </div>
 
-  <nav id="mobile-bottom-nav" class="fixed bottom-0 inset-x-0 z-40 nf-glass border-t border-neutral-800 pb-[env(safe-area-inset-bottom)]">
-    <div class="grid grid-cols-4 h-16 px-1">
-      <button data-tab="home" onclick="window.appRouter.go('home')"
-              class="flex flex-col items-center justify-center gap-1 text-white transition">
-        <span class="text-[11px] font-black tracking-wide">Trang chủ</span>
-        <span class="nav-indicator w-6 h-0.5 rounded bg-[#e50914] transition"></span>
-      </button>
-      <button data-tab="topweek" onclick="window.appRouter.go('topweek')"
-              class="flex flex-col items-center justify-center gap-1 text-neutral-400 transition">
-        <span class="text-[11px] font-bold tracking-wide">Top Tuần</span>
-        <span class="nav-indicator w-6 h-0.5 rounded bg-transparent transition"></span>
-      </button>
-      <button data-tab="explore" onclick="window.appRouter.go('explore')"
-              class="flex flex-col items-center justify-center gap-1 text-neutral-400 transition">
-        <span class="text-[11px] font-bold tracking-wide">Đề xuất</span>
-        <span class="nav-indicator w-6 h-0.5 rounded bg-transparent transition"></span>
-      </button>
-      <button data-tab="library" onclick="window.appRouter.go('library')"
-              class="flex flex-col items-center justify-center gap-1 text-neutral-400 transition">
-        <span class="text-[11px] font-bold tracking-wide">Tủ phim</span>
-        <span class="nav-indicator w-6 h-0.5 rounded bg-transparent transition"></span>
-      </button>
+      <div class="sub-block">
+        <div class="sub-label">Danh sách tập</div>
+        <div id="episodeList" class="episode-grid"></div>
+      </div>
     </div>
-  </nav>
+  </div>
 
+  <div id="toastBanner" class="toast-banner hidden"></div>
   <script src="js/api/api-service.js"></script>
-  <script src="js/utils/storage.js"></script>
-  <script src="js/components/movie-card.js"></script>
-  <script src="js/pages/app-controller.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

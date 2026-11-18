@@ -1,16 +1,13 @@
 {
-  "appId": "com.rosicinema.mobile.app",
+  "appId": "com.rosicinema.mobile",
   "appName": "Rosi Cinema",
   "webDir": "client/src",
-  "bundledWebRuntime": false,
   "server": {
-    "url": "https://tronghuu2k.github.io/motchill-mobile-v3-pc/client/src/",
-    "cleartext": true
+    "androidScheme": "https"
   },
-  "plugins": {
-    "StatusBar": {
-      "style": "DARK",
-      "backgroundColor": "#141414"
-    }
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
   }
 }

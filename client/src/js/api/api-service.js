@@ -1,419 +1,229 @@
 (function () {
-  const PHIM_API_BASE = 'https://phimapi.com';
-  const DEFAULT_CDN_IMAGE = 'https://phimimg.com';
-
-  const cache = new Map();
-  const CACHE_TTL = 4 * 60 * 1000;
-
-  function getTodayKey() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const PRIMARY_API = 'https://phimapi.com';
+  const STORAGE_KEYS = {
+    FAVORITES: 'rosi_cinema_favorites_v1',
+    HISTORY: 'rosi_cinema_history_v1',
+    SEARCH_HISTORY: 'rosi_cinema_search_history_v1',
+    QUALITY: 'rosi_cinema_quality_v1',
+    CACHE_PREFIX: 'rosi_cinema_cache_v1_'
+  };
+  const memoryFallback = new Map();
+  function readStorage(key, fallback = null) {
+    try { const raw = window.localStorage.getItem(key); if (raw !== null) return JSON.parse(raw); } catch (e) {}
+    return memoryFallback.has(key) ? memoryFallback.get(key) : fallback;
   }
-
-  function getCache(key) {
-    const item = cache.get(key);
-    if (!item) return null;
-    if (Date.now() > item.exp) {
-      cache.delete(key);
-      return null;
-    }
-    return item.data;
+  function writeStorage(key, value) {
+    memoryFallback.set(key, value);
+    try { window.localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
   }
-
-  function setCache(key, data, ttl = CACHE_TTL) {
-    if (cache.size > 60) {
-      const oldestKey = cache.keys().next().value;
-      if (oldestKey) cache.delete(oldestKey);
-    }
-    cache.set(key, { data, exp: Date.now() + ttl });
+  function removeStorageByPrefix(prefix) {
+    memoryFallback.forEach((_, k) => { if (k.startsWith(prefix)) memoryFallback.delete(k); });
+    try {
+      const keys = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k && k.startsWith(prefix)) keys.push(k);
+      }
+      keys.forEach(k => window.localStorage.removeItem(k));
+    } catch (e) {}
   }
-
-  function getImageUrl(url, cdnBase = DEFAULT_CDN_IMAGE) {
-    if (!url) return 'assets/placeholder.svg';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    const cleanCdn = cdnBase.replace(/\/+$/, '');
-    const cleanPath = url.replace(/^\/+/, '');
-    return `${cleanCdn}/${cleanPath}`;
+  function normalizeImageUrl(url) {
+    if (!url || typeof url !== 'string') return '';
+    const t = url.trim();
+    if (!t) return '';
+    if (t.startsWith('http://') || t.startsWith('https://')) return t;
+    if (t.startsWith('//')) return 'https:' + t;
+    return `${PRIMARY_API}/${t.replace(/^\/+/, '')}`;
   }
-
-  function normalizeCardItem(raw, cdnBase = DEFAULT_CDN_IMAGE) {
-    if (!raw) return null;
-    const slug = raw.slug || '';
-    const title = raw.name || raw.title || '';
-    const rawPoster = raw.poster_url || raw.thumb_url || raw.poster || raw.thumb || '';
-    const poster = getImageUrl(rawPoster, cdnBase);
-    const rawThumb = raw.thumb_url || raw.poster_url || raw.thumb || raw.poster || '';
-    const thumb = getImageUrl(rawThumb, cdnBase);
-
-    let badge = raw.episode_current || raw.quality || raw.badge || '';
-    if (raw.lang && !badge.includes(raw.lang)) {
-      badge = badge ? `${badge} - ${raw.lang}` : raw.lang;
-    }
-
-    const modifiedTime = raw.modified?.time || '';
-    const isToday = modifiedTime ? modifiedTime.startsWith(getTodayKey()) : false;
-
+  function normalizeMovieItem(raw = {}) {
+    const slug = raw.slug || raw._id || '';
+    const thumb = normalizeImageUrl(raw.thumb_url || raw.poster_url || raw.thumb || '') || normalizeImageUrl(raw.poster_url || '');
+    const backdrop = normalizeImageUrl(raw.poster_url || raw.thumb_url || '') || thumb;
     return {
       slug,
-      title,
-      thumb: poster,
-      poster,
-      backdrop: thumb,
-      year: raw.year || '2026',
-      badge: badge || 'HD',
-      modifiedTime,
-      isToday
+      title: raw.name || raw.title || 'Rosi Cinema',
+      originName: raw.origin_name || raw.originName || '',
+      thumb, poster: backdrop, backdrop,
+      year: raw.year || (raw.modified && raw.modified.year) || '',
+      status: raw.episode_current || raw.status || raw.quality || '4K',
+      type: raw.type || 'single',
+      description: raw.content || raw.description || ''
     };
   }
-
-  async function safeFetchJson(url, timeoutMs = 8500) {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeoutMs);
+  async function fetchJsonWithTimeout(url, timeoutMs = 9000) {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
     try {
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(id);
+      const res = await fetch(url, { signal: controller ? controller.signal : undefined });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+  async function cachedFetch(cacheKey, url, ttlMs = 1000 * 60 * 15) {
+    const fullKey = STORAGE_KEYS.CACHE_PREFIX + cacheKey;
+    const cached = readStorage(fullKey);
+    if (cached && Date.now() - cached.ts < ttlMs) return cached.data;
+    try {
+      const data = await fetchJsonWithTimeout(url);
+      writeStorage(fullKey, { ts: Date.now(), data });
+      return data;
     } catch (err) {
-      clearTimeout(id);
+      if (cached && cached.data) return cached.data;
       throw err;
     }
   }
-
-  class MovieApiService {
-    clearCache() {
-      cache.clear();
-    }
-
-    async getHome(forceRefresh = false) {
-      const today = getTodayKey();
-      const lastSync = window.appStorage?.getLastDailySyncDate?.() || '';
-      const needDailyAutoSync = lastSync !== today;
-
-      const cacheKey = `home_nf_v6_${today}`;
-      if (!forceRefresh && !needDailyAutoSync) {
-        const cached = getCache(cacheKey);
-        if (cached) return cached;
-      }
-
-      const [resHotP1, resHotP2, resBo, resLe, resRap, resAnime, resTopView] = await Promise.allSettled([
-        safeFetchJson(`${PHIM_API_BASE}/danh-sach/phim-moi-cap-nhat?page=1`),
-        safeFetchJson(`${PHIM_API_BASE}/danh-sach/phim-moi-cap-nhat?page=2`),
-        safeFetchJson(`${PHIM_API_BASE}/v1/api/danh-sach/phim-bo?page=1`),
-        safeFetchJson(`${PHIM_API_BASE}/v1/api/danh-sach/phim-le?page=1`),
-        safeFetchJson(`${PHIM_API_BASE}/v1/api/danh-sach/phim-chieu-rap?page=1`),
-        safeFetchJson(`${PHIM_API_BASE}/v1/api/danh-sach/hoat-hinh?page=1`),
-        safeFetchJson(`${PHIM_API_BASE}/v1/api/danh-sach/phim-bo?sort_field=view&limit=12`)
-      ]);
-
-      const extractItems = (res, isRoot = false) => {
-        if (res.status !== 'fulfilled') return [];
-        const payload = isRoot ? res.value : res.value?.data;
-        if (!payload?.items) return [];
-        const cdn = payload.APP_DOMAIN_CDN_IMAGE || DEFAULT_CDN_IMAGE;
-        return payload.items.map(it => normalizeCardItem(it, cdn)).filter(Boolean);
-      };
-
-      const hotP1 = extractItems(resHotP1, true);
-      const hotP2 = extractItems(resHotP2, true);
-      const boItems = extractItems(resBo);
-      const leItems = extractItems(resLe);
-      const rapItems = extractItems(resRap);
-      const animeItems = extractItems(resAnime);
-      const topViewRaw = extractItems(resTopView);
-
-      const mergedHot = [...hotP1, ...hotP2];
-      const uniqueHot = [];
-      const seenSlugs = new Set();
-      for (const item of mergedHot) {
-        if (!seenSlugs.has(item.slug)) {
-          seenSlugs.add(item.slug);
-          uniqueHot.push(item);
-        }
-      }
-
-      const topWeeklySource = topViewRaw.length >= 10 ? topViewRaw : [...rapItems.slice(0, 4), ...boItems.slice(0, 4), ...leItems.slice(0, 4)];
-      const topWeekly = [];
-      const seenTop = new Set();
-      for (const item of topWeeklySource) {
-        if (!seenTop.has(item.slug) && topWeekly.length < 10) {
-          seenTop.add(item.slug);
-          topWeekly.push({ ...item, rank: topWeekly.length + 1 });
-        }
-      }
-
-      const history = window.appStorage?.getHistory?.() || [];
-      const favs = window.appStorage?.getFavorites?.() || [];
-      const watchedSlugs = new Set([...history.map(h => h.slug), ...favs.map(f => f.slug)]);
-      const recPool = [...rapItems, ...boItems, ...leItems, ...animeItems].filter(it => !watchedSlugs.has(it.slug));
-      const recommended = [];
-      const seenRec = new Set();
-      for (const item of recPool) {
-        if (!seenRec.has(item.slug) && recommended.length < 16) {
-          seenRec.add(item.slug);
-          recommended.push(item);
-        }
-      }
-
-      const dailyMovies = uniqueHot.filter(it => it.isToday);
-      const dailyList = dailyMovies.length > 0 ? dailyMovies : uniqueHot.slice(0, 18);
-
-      const sections = [];
-      if (recommended.length > 0) {
-        sections.push({
-          id: 'phim-chieu-rap',
-          title: 'Đề Xuất Phim Hay Dành Cho Bạn',
-          items: recommended
-        });
-      }
-      if (dailyList.length > 0) {
-        sections.push({
-          id: 'phim-moi-cap-nhat',
-          title: `Mới Cập Nhật Hôm Nay (${dailyList.length})`,
-          items: dailyList.slice(0, 20)
-        });
-      }
-
-      const pushSec = (items, id, title) => {
-        if (items.length > 0) sections.push({ id, title, items: items.slice(0, 20) });
-      };
-
-      pushSec(boItems, 'phim-bo', 'Phim Bộ Đang Thịnh Hành');
-      pushSec(leItems, 'phim-le', 'Phim Lẻ Tuyển Chọn');
-      pushSec(rapItems, 'phim-chieu-rap', 'Siêu Phẩm Chiếu Rạp');
-      pushSec(animeItems, 'hoat-hinh', 'Anime & Hoạt Hình');
-
-      if (sections.length === 0) {
-        throw new Error('Không thể kết nối kho phim Rosi Cinema. Vui lòng kiểm tra kết nối mạng.');
-      }
-
-      const topCandidate = topWeekly[0] || dailyList[0] || hotP1[0] || null;
-      let hero = topCandidate;
-      if (topCandidate) {
-        try { hero = await this.getMovieDetail(topCandidate.slug); } catch (e) {}
-      }
-
-      const favUpdates = [];
-      for (const fav of favs) {
-        const matched = uniqueHot.find(m => m.slug === fav.slug);
-        if (matched && matched.badge && fav.lastKnownStatus && matched.badge !== fav.lastKnownStatus) {
-          favUpdates.push({ slug: fav.slug, title: fav.title, newEp: matched.badge });
-          window.appStorage.updateFavoriteStatus(fav.slug, matched.badge);
-        }
-      }
-
-      if (window.appStorage?.setLastDailySyncDate) {
-        window.appStorage.setLastDailySyncDate(today);
-      }
-
-      const result = {
-        hero,
-        topWeekly,
-        recommended,
-        sections,
-        dailyMovies: dailyList,
-        favUpdates,
-        syncedDate: today
-      };
-      setCache(cacheKey, result);
-      return result;
-    }
-
-    async getCategory(type, slug, page = 1) {
-      const p = Math.max(1, parseInt(page, 10) || 1);
-      const cacheKey = `cat_${type}_${slug}_p${p}`;
-      const cached = getCache(cacheKey);
-      if (cached) return cached;
-
-      let endpoint = '';
-      if (slug === 'phim-moi-cap-nhat') {
-        endpoint = `${PHIM_API_BASE}/danh-sach/phim-moi-cap-nhat?page=${p}`;
-      } else if (type === 'the-loai') {
-        const mappedSlug = slug === 'phim-hai' ? 'hai-huoc' : slug;
-        endpoint = `${PHIM_API_BASE}/v1/api/the-loai/${mappedSlug}?page=${p}`;
-      } else if (type === 'quoc-gia') {
-        const mappedCountry = slug === 'phim-thai-lan' ? 'thai-lan' : slug;
-        endpoint = `${PHIM_API_BASE}/v1/api/quoc-gia/${mappedCountry}?page=${p}`;
-      } else {
-        endpoint = `${PHIM_API_BASE}/v1/api/danh-sach/${slug}?page=${p}`;
-      }
-
-      const json = await safeFetchJson(endpoint);
-      const dataObj = json.data || json;
-      const cdn = dataObj.APP_DOMAIN_CDN_IMAGE || DEFAULT_CDN_IMAGE;
-      const items = (dataObj.items || []).map(it => normalizeCardItem(it, cdn)).filter(Boolean);
-
-      const totalItems = dataObj.params?.pagination?.totalItems || 0;
-      const totalPerPage = dataObj.params?.pagination?.totalItemsPerPage || 24;
-      const hasNext = (p * totalPerPage < totalItems) || items.length >= 12;
-
-      const result = { title: dataObj.titlePage || slug, type, slug, page: p, hasNext, items };
-      setCache(cacheKey, result);
-      return result;
-    }
-
-    async search(query) {
-      if (!query || !query.trim()) return [];
-      const q = query.trim();
-      const cacheKey = `search_${encodeURIComponent(q.toLowerCase())}`;
-      const cached = getCache(cacheKey);
-      if (cached) return cached;
-
-      const url = `${PHIM_API_BASE}/v1/api/tim-kiem?keyword=${encodeURIComponent(q)}&limit=24`;
-      const json = await safeFetchJson(url);
-      const cdn = json.data?.APP_DOMAIN_CDN_IMAGE || DEFAULT_CDN_IMAGE;
-      const items = (json.data?.items || []).map(it => normalizeCardItem(it, cdn)).filter(Boolean);
-
-      setCache(cacheKey, items, 2 * 60 * 1000);
-      return items;
-    }
-
-    async getMovieDetail(slug) {
-      const cacheKey = `movie_${slug}`;
-      const cached = getCache(cacheKey);
-      if (cached) return cached;
-
-      const url = `${PHIM_API_BASE}/phim/${slug}`;
-      const json = await safeFetchJson(url);
-      if (!json.status || !json.movie) throw new Error('Không tìm thấy thông tin phim.');
-
-      const m = json.movie;
-      const episodes = [];
-      const seenEps = new Set();
-
-      if (Array.isArray(json.episodes)) {
-        for (const s of json.episodes) {
-          if (!s.server_data) continue;
-          for (const ep of s.server_data) {
-            const rawNum = String(ep.name).replace(/^tập\s*/i, '').trim();
-            const num = rawNum || String(episodes.length + 1);
-            if (!seenEps.has(num)) {
-              seenEps.add(num);
-              episodes.push({
-                number: num,
-                name: isNaN(num) ? num : `Tập ${num}`,
-                slug: ep.slug || `tap-${num}`,
-                url: ep.link_m3u8 || ep.link_embed || ''
-              });
-            }
-          }
-        }
-      }
-
-      if (episodes.length === 0) {
-        episodes.push({ number: '1', name: 'Full', slug: 'full', url: '' });
-      }
-
-      const result = {
-        slug: m.slug || slug,
-        title: m.name || slug,
-        originalTitle: m.origin_name || '',
-        poster: getImageUrl(m.poster_url || m.thumb_url),
-        backdrop: getImageUrl(m.thumb_url || m.poster_url),
-        description: (m.content || 'Đang cập nhật nội dung phim...').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim(),
-        year: String(m.year || '2026'),
-        duration: m.time || 'N/A',
-        country: Array.isArray(m.country) ? m.country.map(c => c.name).join(', ') : 'Quốc Tế',
-        genre: Array.isArray(m.category) ? m.category.map(c => c.name).join(', ') : 'Phim Hay',
-        status: m.episode_current || `${episodes.length} Tập`,
-        episodes
-      };
-
-      setCache(cacheKey, result);
-      return result;
-    }
-
-    async getStream(slug, episodeNum = '1') {
-      const targetEp = String(episodeNum).toLowerCase().replace(/^tập\s*/i, '').replace(/^tap[-_]?/i, '').trim();
-      const cacheKey = `stream_${slug}_ep${targetEp}`;
-      const cached = getCache(cacheKey);
-      if (cached) return cached;
-
-      const url = `${PHIM_API_BASE}/phim/${slug}`;
-      const json = await safeFetchJson(url);
-      if (!json.status || !json.episodes?.length) throw new Error('Không tìm thấy nguồn video phát.');
-
-      const sources = [];
-      const seenUrls = new Set();
-      const allEpisodes = [];
-      const seenAllEps = new Set();
-
-      const cleanEp = (val) => {
-        if (!val) return '';
-        const s = String(val).toLowerCase().replace(/^tập\s*/i, '').replace(/^tap[-_]?/i, '').trim();
-        const num = parseInt(s, 10);
-        return (!isNaN(num) && num > 0) ? String(num) : s;
-      };
-      const normTarget = cleanEp(targetEp);
-
-      for (const server of json.episodes) {
-        const sName = server.server_name || 'VIP Server';
-        if (!server.server_data) continue;
-        const isSingle = server.server_data.length === 1;
-
-        for (const ep of server.server_data) {
-          const rawNum = String(ep.name).replace(/^tập\s*/i, '').trim();
-          const epNum = rawNum || '1';
-          const epNorm = cleanEp(ep.name);
-          const slugNorm = cleanEp(ep.slug);
-
-          if (!seenAllEps.has(epNum)) {
-            seenAllEps.add(epNum);
-            allEpisodes.push({
-              number: epNum,
-              name: isNaN(epNum) ? epNum : `Tập ${epNum}`,
-              slug: ep.slug,
-              isCurrent: epNorm === normTarget
-            });
-          }
-
-          const isMatch = epNorm === normTarget || slugNorm === normTarget || isSingle ||
-                          (ep.slug === `tap-${normTarget}`) || (ep.slug === `tap-0${normTarget}`) ||
-                          (normTarget === '1' && (epNorm === 'full' || slugNorm === 'full')) ||
-                          (normTarget === 'full' && (epNorm === '1' || slugNorm === '1'));
-          if (isMatch) {
-            if (ep.link_m3u8 && !seenUrls.has(ep.link_m3u8)) {
-              seenUrls.add(ep.link_m3u8);
-              sources.push({ label: `${sName} (HLS Siêu Tốc)`, type: 'm3u8', url: ep.link_m3u8, isHls: true });
-            }
-            if (ep.link_embed && !seenUrls.has(ep.link_embed)) {
-              seenUrls.add(ep.link_embed);
-              sources.push({ label: `${sName} (Dự Phòng)`, type: 'embed', url: ep.link_embed, isHls: false });
-            }
-          }
-        }
-      }
-
-      if (sources.length === 0) {
-        for (const server of json.episodes) {
-          if (!server.server_data?.length) continue;
-          const sName = server.server_name || 'VIP Server';
-          const firstEp = server.server_data[0];
-          if (firstEp.link_m3u8 && !seenUrls.has(firstEp.link_m3u8)) {
-            seenUrls.add(firstEp.link_m3u8);
-            sources.push({ label: `${sName} (HLS Siêu Tốc)`, type: 'm3u8', url: firstEp.link_m3u8, isHls: true });
-          }
-          if (firstEp.link_embed && !seenUrls.has(firstEp.link_embed)) {
-            seenUrls.add(firstEp.link_embed);
-            sources.push({ label: `${sName} (Dự Phòng)`, type: 'embed', url: firstEp.link_embed, isHls: false });
-          }
-        }
-      }
-
-      sources.sort((a, b) => (b.isHls ? 1 : 0) - (a.isHls ? 1 : 0));
-      if (!sources.length) throw new Error(`Chưa có link xem cho Tập ${episodeNum}.`);
-
-      const result = {
-        success: true,
-        slug,
-        currentEpisode: targetEp,
-        sources,
-        episodes: allEpisodes.length > 0 ? allEpisodes : [{ number: targetEp, name: `Tập ${targetEp}`, isCurrent: true }]
-      };
-      setCache(cacheKey, result);
-      return result;
-    }
+  function extractMovieArray(payload) {
+    if (!payload) return [];
+    if (Array.isArray(payload.items)) return payload.items;
+    if (payload.data && Array.isArray(payload.data.items)) return payload.data.items;
+    if (Array.isArray(payload.data)) return payload.data;
+    return [];
   }
-
-  window.movieApi = new MovieApiService();
+  async function getHomeSections() {
+    const [latestRes, seriesRes, singleRes] = await Promise.allSettled([
+      cachedFetch('home_latest', `${PRIMARY_API}/danh-sach/phim-moi-cap-nhat?page=1`),
+      cachedFetch('home_series', `${PRIMARY_API}/v1/api/danh-sach/phim-bo?page=1&limit=12`),
+      cachedFetch('home_single', `${PRIMARY_API}/v1/api/danh-sach/phim-le?page=1&limit=12`)
+    ]);
+    const latest = latestRes.status === 'fulfilled' ? extractMovieArray(latestRes.value).map(normalizeMovieItem) : [];
+    const series = seriesRes.status === 'fulfilled' ? extractMovieArray(seriesRes.value).map(normalizeMovieItem) : [];
+    const single = singleRes.status === 'fulfilled' ? extractMovieArray(singleRes.value).map(normalizeMovieItem) : [];
+    return { hero: latest[0] || series[0] || single[0] || null, latest, series, single };
+  }
+  async function getCatalog({ type = 'phim-moi', genre = '', country = '', page = 1 } = {}) {
+    let url = '';
+    if (genre) url = `${PRIMARY_API}/v1/api/the-loai/${encodeURIComponent(genre)}?page=${page}&limit=18${country ? `&country=${encodeURIComponent(country)}` : ''}`;
+    else if (country) url = `${PRIMARY_API}/v1/api/quoc-gia/${encodeURIComponent(country)}?page=${page}&limit=18`;
+    else if (type === 'phim-moi') url = `${PRIMARY_API}/danh-sach/phim-moi-cap-nhat?page=${page}`;
+    else url = `${PRIMARY_API}/v1/api/danh-sach/${encodeURIComponent(type)}?page=${page}&limit=18`;
+    const data = await cachedFetch(`cat_${type}_${genre}_${country}_${page}`, url);
+    const items = extractMovieArray(data).map(normalizeMovieItem);
+    const pagination = (data && data.data && data.data.params && data.data.params.pagination) || (data && data.pagination) || { currentPage: page, totalPages: items.length ? page + 1 : page };
+    return { items, currentPage: Number(pagination.currentPage || page), totalPages: Number(pagination.totalPages || (items.length ? page + 1 : 1)) };
+  }
+  async function searchMovies(keyword, page = 1) {
+    const q = (keyword || '').trim();
+    if (!q) return { items: [], currentPage: 1, totalPages: 1 };
+    const data = await fetchJsonWithTimeout(`${PRIMARY_API}/v1/api/tim-kiem?keyword=${encodeURIComponent(q)}&page=${page}&limit=18`);
+    return { items: extractMovieArray(data).map(normalizeMovieItem), currentPage: page, totalPages: page + 1 };
+  }
+  async function getMovieDetail(slug) {
+    const data = await cachedFetch(`detail_${slug}`, `${PRIMARY_API}/phim/${encodeURIComponent(slug)}`);
+    const rawMovie = data.movie || (data.data && data.data.item) || {};
+    const movie = normalizeMovieItem({ ...rawMovie, slug: rawMovie.slug || slug, content: rawMovie.content || '' });
+    movie.category = Array.isArray(rawMovie.category) ? rawMovie.category.map(c => c.name).join(', ') : '';
+    movie.country = Array.isArray(rawMovie.country) ? rawMovie.country.map(c => c.name).join(', ') : '';
+    const servers = data.episodes || (data.data && data.data.item && data.data.item.episodes) || [];
+    const episodes = [];
+    const seen = new Set();
+    servers.forEach((srv, sIdx) => {
+      (Array.isArray(srv.server_data) ? srv.server_data : []).forEach((ep, idx) => {
+        const epNum = String(ep.slug || ep.name || idx + 1).replace(/^tap-?/i, '') || String(idx + 1);
+        if (!seen.has(epNum)) {
+          seen.add(epNum);
+          episodes.push({ num: epNum, label: ep.name || `Tập ${epNum}`, key: `${epNum}_${sIdx}` });
+        }
+      });
+    });
+    return { movie, episodes, servers };
+  }
+  async function getStream(slug, episodeNum = '1') {
+    const detail = await getMovieDetail(slug);
+    const episodes = detail.episodes.length ? detail.episodes : [{ num: String(episodeNum || '1'), label: `Tập ${episodeNum || '1'}` }];
+    const cleanTarget = String(episodeNum).toLowerCase().trim();
+    const foundIdx = episodes.findIndex(ep => String(ep.num).toLowerCase() === cleanTarget || String(ep.label).toLowerCase().includes(cleanTarget));
+    const epIndex = foundIdx >= 0 ? foundIdx : 0;
+    const activeEp = episodes[epIndex];
+    const sources = [];
+    detail.servers.forEach(srv => {
+      const serverName = srv.server_name || 'Server';
+      const list = Array.isArray(srv.server_data) ? srv.server_data : [];
+      const matched = list.find(item => String(item.slug || item.name || '').replace(/^tap-?/i, '') === activeEp.num) || list[epIndex] || list[0];
+      if (matched) {
+        if (matched.link_m3u8) sources.push({ name: `${serverName} (HLS)`, type: 'hls', url: matched.link_m3u8 });
+        if (matched.link_embed) sources.push({ name: `${serverName} (Embed)`, type: 'embed', url: matched.link_embed });
+      }
+    });
+    if (!sources.length) throw new Error('Không tìm thấy nguồn phát.');
+    return { slug, title: detail.movie.title, currentEpisode: activeEp.num, episodes, sources };
+  }
+  function getPreferredQuality() {
+    const val = readStorage(STORAGE_KEYS.QUALITY, 'auto');
+    return ['auto', '4k', '1080p', '720p', '480p'].includes(val) ? val : 'auto';
+  }
+  function setPreferredQuality(quality) {
+    const clean = ['auto', '4k', '1080p', '720p', '480p'].includes(quality) ? quality : 'auto';
+    writeStorage(STORAGE_KEYS.QUALITY, clean);
+    return clean;
+  }
+  function getFavorites() { return readStorage(STORAGE_KEYS.FAVORITES, []); }
+  function isFavorite(slug) { return Boolean(slug) && getFavorites().some(i => i.slug === slug); }
+  function toggleFavorite(movie) {
+    if (!movie || !movie.slug) return false;
+    const list = getFavorites();
+    const idx = list.findIndex(i => i.slug === movie.slug);
+    if (idx >= 0) { list.splice(idx, 1); writeStorage(STORAGE_KEYS.FAVORITES, list); return false; }
+    list.unshift({ slug: movie.slug, title: movie.title, thumb: movie.thumb || '', poster: movie.poster || '', badge: movie.status || '4K', year: movie.year || '' });
+    writeStorage(STORAGE_KEYS.FAVORITES, list);
+    return true;
+  }
+  function getWatchHistory() { return readStorage(STORAGE_KEYS.HISTORY, []); }
+  function getEpisodeProgress(slug, episodeNum) {
+    const entry = getWatchHistory().find(i => i.slug === slug);
+    return entry && entry.episodesProgress ? entry.episodesProgress[String(episodeNum)] || null : null;
+  }
+  function saveWatchProgress(payload = {}) {
+    if (!payload.slug) return;
+    const history = getWatchHistory();
+    const epKey = String(payload.episodeNum || '1');
+    const currentTime = Number(payload.currentTime || 0);
+    const duration = Number(payload.duration || 0);
+    const progressPct = duration > 0 ? Math.min(100, Math.max(0, Math.round((currentTime / duration) * 100))) : 0;
+    const idx = history.findIndex(i => i.slug === payload.slug);
+    const existing = idx >= 0 ? history[idx] : {};
+    const episodesProgress = { ...(existing.episodesProgress || {}) };
+    const prevEp = episodesProgress[epKey] || {};
+    episodesProgress[epKey] = {
+      episodeNum: epKey,
+      episodeLabel: payload.episodeLabel || prevEp.episodeLabel || `Tập ${epKey}`,
+      currentTime: currentTime > 0 ? currentTime : (prevEp.currentTime || 0),
+      duration: duration > 0 ? duration : (prevEp.duration || 0),
+      progressPct: duration > 0 ? progressPct : (prevEp.progressPct || 0),
+      updatedAt: Date.now()
+    };
+    const item = {
+      slug: payload.slug, title: payload.title || existing.title || payload.slug,
+      thumb: payload.thumb || existing.thumb || '', backdrop: payload.backdrop || existing.backdrop || '',
+      badge: payload.badge || existing.badge || '4K',
+      lastEpisodeNum: epKey, lastEpisodeLabel: payload.episodeLabel || existing.lastEpisodeLabel || `Tập ${epKey}`,
+      progressPct: duration > 0 ? progressPct : (existing.progressPct || 0),
+      currentTime: currentTime > 0 ? currentTime : (existing.currentTime || 0),
+      duration: duration > 0 ? duration : (existing.duration || 0),
+      episodesProgress, updatedAt: Date.now()
+    };
+    if (idx >= 0) history.splice(idx, 1);
+    history.unshift(item);
+    writeStorage(STORAGE_KEYS.HISTORY, history.slice(0, 40));
+  }
+  function clearWatchHistory() { writeStorage(STORAGE_KEYS.HISTORY, []); }
+  function getSearchHistory() { return readStorage(STORAGE_KEYS.SEARCH_HISTORY, []); }
+  function addSearchHistory(keyword) {
+    const clean = (keyword || '').trim();
+    if (!clean) return;
+    const list = getSearchHistory().filter(k => k.toLowerCase() !== clean.toLowerCase());
+    list.unshift(clean);
+    writeStorage(STORAGE_KEYS.SEARCH_HISTORY, list.slice(0, 10));
+  }
+  function clearSearchHistory() { writeStorage(STORAGE_KEYS.SEARCH_HISTORY, []); }
+  function clearCache() { removeStorageByPrefix(STORAGE_KEYS.CACHE_PREFIX); }
+  const methods = {
+    getHomeSections, getCatalog, searchMovies, getMovieDetail, getStream,
+    getPreferredQuality, setPreferredQuality, getFavorites, isFavorite, toggleFavorite,
+    getWatchHistory, getEpisodeProgress, saveWatchProgress, clearWatchHistory,
+    getSearchHistory, addSearchHistory, clearSearchHistory, clearCache
+  };
+  window.RosiApi = methods;
+  window.apiService = Object.assign(window.apiService || {}, methods);
 })();
