@@ -500,8 +500,12 @@
     });
   }
 
-  async function loadHome() {
+  async function loadHome(isManualRetry = false) {
     renderContinueWatching();
+    if (isManualRetry) {
+      els.heroBanner.innerHTML = `<div class="empty-state">Đang tải phim...</div>`;
+      els.latestGrid.innerHTML = `<div class="empty-state">Đang tải...</div>`;
+    }
     try {
       const { hero, latest, series, single } = await api.getHomeSections();
       renderHero(hero);
@@ -531,8 +535,17 @@
       const fSingle = document.createDocumentFragment();
       topSingle.forEach((m) => fSingle.appendChild(createMovieCard(m)));
       els.singleGrid.replaceChildren(fSingle);
+      if (!hero && !latest.length && !series.length && !single.length) {
+        throw new Error('Empty home response');
+      }
     } catch (e) {
-      els.latestGrid.innerHTML = `<div class="empty-state">Lỗi kết nối</div>`;
+      els.heroBanner.innerHTML = `<div class="empty-state">Đang kết nối lại máy chủ phim...</div>`;
+      els.latestGrid.innerHTML = `
+        <div class="empty-state">
+          <div style="margin-bottom:10px;">Không tải được danh sách phim</div>
+          <button id="retryHomeBtn" class="primary-btn" type="button">↻ Thử kết nối lại</button>
+        </div>`;
+      document.getElementById('retryHomeBtn')?.addEventListener('click', () => loadHome(true));
     }
   }
 
@@ -639,19 +652,6 @@
       }
     });
 
-    const capApp = window.Capacitor?.Plugins?.App;
-    if (capApp?.addListener) {
-      capApp.addListener('backButton', () => {
-        const isPlayerOpen = els.playerModal && !els.playerModal.classList.contains('hidden');
-        const isDetailOpen = els.detailModal && !els.detailModal.classList.contains('hidden');
-        const isWelcomeOpen = els.welcomeModal && !els.welcomeModal.classList.contains('hidden');
-        if (isPlayerOpen) { closePlayer(); return; }
-        if (isDetailOpen) { closeDetailModal(); return; }
-        if (isWelcomeOpen) { closeWelcomeModal(); return; }
-        if (state.activeTab !== 'tab-home') { switchTab('tab-home'); return; }
-        if (capApp.exitApp) capApp.exitApp();
-      });
-    }
   }
 
   async function openMovieDetail(slug) {
@@ -1249,7 +1249,9 @@
     syncBackgroundScrollLock();
     openWelcomeModal();
     loadHome().then(() => {
-      if (typeof api.preloadDefaultCatalogs === 'function') {
+      if (els.latestGrid && els.latestGrid.querySelector('#retryHomeBtn')) {
+        setTimeout(() => loadHome(true), 1200);
+      } else if (typeof api.preloadDefaultCatalogs === 'function') {
         setTimeout(() => api.preloadDefaultCatalogs(), 350);
       }
     });

@@ -1,7 +1,7 @@
 {
-  "version": "1.5.1",
-  "versionCode": 151,
+  "version": "1.5.2",
+  "versionCode": 152,
   "appName": "Rosi Cinema",
   "platform": "android-phone",
-  "notes": "Rosi Cinema v1.5.1: Fast parallel CDN poster loading, 1.5s image timeout failover, instant catalog preload & stale-while-revalidate cache."
+  "notes": "Rosi Cinema v1.5.2: CapacitorHttp native Android networking + phimapi/ophim1 auto-failover mirrors + fast poster CDN + auto-retry."
 }

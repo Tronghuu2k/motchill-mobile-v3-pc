@@ -4,6 +4,12 @@ const path = require('path');
 const manifestPath = path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
 if (fs.existsSync(manifestPath)) {
   let xml = fs.readFileSync(manifestPath, 'utf8');
+  if (!xml.includes('android.permission.INTERNET')) {
+    xml = xml.replace('<application', '<uses-permission android:name="android.permission.INTERNET" />\n    <application');
+  }
+  if (!xml.includes('android.permission.ACCESS_NETWORK_STATE')) {
+    xml = xml.replace('<application', '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application');
+  }
   if (!xml.includes('android:configChanges=')) {
     xml = xml.replace(
       /(<activity[^>]*android:name="[^"]*MainActivity"[^>]*)>/,

@@ -1,8 +1,8 @@
-# Rosi Cinema (v1.5.1)
+# Rosi Cinema (v1.5.2)
 
-Ứng dụng xem phim Android APK build tự động qua GitHub Actions (Capacitor 8 + `@capacitor/screen-orientation`).
+Ứng dụng xem phim Android APK build tự động qua GitHub Actions (Capacitor 8 + `@capacitor/screen-orientation` + `CapacitorHttp`).
 
-## Nâng cấp v1.5.1 (Hiển thị danh sách phim & ảnh poster siêu nhanh)
-- **Tải song song 2 CDN ảnh + tự ngắt link chậm sau 1.5s**: Không còn cảnh thẻ phim bị đen trống chờ CDN đầu tiên phản hồi.
-- **Tải trước (Preload) danh mục & Cache thông minh**: Mở app lên tự nạp trước danh sách *Tất cả, Phim bộ, Phim lẻ, Hoạt hình* và lưu nhớ máy chủ CDN nhanh nhất trên mạng hiện tại.
-- **Giữ nguyên toàn bộ tính năng v1.5.0**: Cuộn dọc mượt, xoay ngang chuẩn phần cứng APK, lời chào đầu trang, tự đổi nguồn phim sau ~2.8s, 4K Ultra.
+## Nâng cấp v1.5.2 (Sửa triệt để "Lỗi kết nối" trên APK & tải phim siêu nhanh)
+- **Bật `CapacitorHttp` native Android (`OkHttp`)**: Gọi API qua tầng mạng gốc của Android, không bị WebView chặn CORS/TLS hay treo kết nối.
+- **Tự động chuyển sang máy chủ dự phòng (`ophim1.com`)** khi `phimapi.com` bị nghẽn hoặc chặn trên nhà mạng di động, kèm tự động thử lại và nút **Thử kết nối lại**.
+- **Giữ nguyên toàn bộ tính năng trước đó**: Tải ảnh song song 2 CDN, preload danh mục, cuộn dọc mượt, xoay ngang chuẩn phần cứng APK, 4K Ultra.

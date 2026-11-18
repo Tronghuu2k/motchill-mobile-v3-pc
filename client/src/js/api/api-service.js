@@ -1,5 +1,5 @@
 (function () {
-  const APP_VERSION = '1.5.1';
+  const APP_VERSION = '1.5.2';
   const PRIMARY_API = 'https://phimapi.com';
   const IMG_CDNS = [
     'https://phimimg.com',
@@ -141,16 +141,78 @@
     };
   }
 
-  async function fetchJsonWithTimeout(url, timeoutMs = 6500) {
+  const API_MIRRORS = [
+    'https://phimapi.com',
+    'https://ophim1.com'
+  ];
+
+  function buildMirrorUrls(url) {
+    const list = [url];
+    try {
+      const u = new URL(url);
+      if (u.origin === PRIMARY_API) {
+        const path = u.pathname + (u.search || '');
+        if (path.startsWith('/v1/api/danh-sach/')) {
+          const slug = path.replace('/v1/api/danh-sach/', '');
+          list.push(`https://ophim1.com/v1/api/danh-sach/${slug}`);
+        } else if (path.startsWith('/danh-sach/phim-moi-cap-nhat')) {
+          list.push(`https://ophim1.com/danh-sach/phim-moi-cap-nhat${u.search || ''}`);
+          list.push(`https://ophim1.com/v1/api/danh-sach/phim-moi${u.search || ''}`);
+        } else if (path.startsWith('/v1/api/the-loai/')) {
+          list.push(`https://ophim1.com${path}`);
+        } else if (path.startsWith('/v1/api/quoc-gia/')) {
+          list.push(`https://ophim1.com${path}`);
+        } else if (path.startsWith('/v1/api/tim-kiem')) {
+          list.push(`https://ophim1.com${path}`);
+        } else if (path.startsWith('/phim/')) {
+          list.push(`https://ophim1.com${path}`);
+        }
+      }
+    } catch (_) {}
+    return Array.from(new Set(list));
+  }
+
+  async function singleFetchAttempt(url, timeoutMs = 8500) {
+    const capHttp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp;
+    if (capHttp && typeof capHttp.get === 'function') {
+      try {
+        const res = await capHttp.get({
+          url,
+          connectTimeout: timeoutMs,
+          readTimeout: timeoutMs,
+          headers: { 'Accept': 'application/json' }
+        });
+        if (res && res.status >= 200 && res.status < 300 && res.data) {
+          return typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+        }
+      } catch (_) {}
+    }
+
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
     try {
-      const res = await fetch(url, { signal: controller ? controller.signal : undefined });
+      const res = await fetch(url, {
+        signal: controller ? controller.signal : undefined,
+        cache: 'no-store'
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } finally {
       if (timer) clearTimeout(timer);
     }
+  }
+
+  async function fetchJsonWithTimeout(url, timeoutMs = 8500) {
+    const targets = buildMirrorUrls(url);
+    let lastErr = null;
+    for (let i = 0; i < targets.length; i++) {
+      try {
+        return await singleFetchAttempt(targets[i], timeoutMs);
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr || new Error('Network error');
   }
 
   async function cachedFetch(cacheKey, url, ttlMs = 1000 * 60 * 30) {
@@ -163,7 +225,7 @@
     if (!inflightRequests.has(fullKey)) {
       const reqPromise = (async () => {
         try {
-          const data = await fetchJsonWithTimeout(url, 5500);
+          const data = await fetchJsonWithTimeout(url, 8500);
           writeStorage(fullKey, { ts: Date.now(), data });
           return data;
         } catch (err) {

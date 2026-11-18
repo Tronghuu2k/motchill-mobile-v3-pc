@@ -2,6 +2,11 @@
   "appId": "com.rosicinema.mobile",
   "appName": "Rosi Cinema",
   "webDir": "client/src",
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  },
   "server": {
     "androidScheme": "https",
     "cleartext": true

@@ -531,7 +531,7 @@ html.is-landscape-playing.needs-css-landscape .player-overlay.is-landscape-mode 
 }
 
 
-/* v1.5.1 Instant Skeleton Cards for Fast Catalog/Search Rendering */
+/* v1.5.2 Instant Skeleton Cards for Fast Catalog/Search Rendering */
 .skeleton-card { pointer-events: none; }
 .sk-line {
   height: 11px; border-radius: 6px;
