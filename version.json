@@ -1,7 +1,7 @@
 {
-  "version": "1.5.0",
-  "versionCode": 150,
+  "version": "1.5.1",
+  "versionCode": 151,
   "appName": "Rosi Cinema",
   "platform": "android-phone",
-  "notes": "Rosi Cinema v1.5.0: Native Android ScreenOrientation hardware rotation + WebView vertical scroll unlock + MainActivity WebView tuning in GitHub Actions."
+  "notes": "Rosi Cinema v1.5.1: Fast parallel CDN poster loading, 1.5s image timeout failover, instant catalog preload & stale-while-revalidate cache."
 }

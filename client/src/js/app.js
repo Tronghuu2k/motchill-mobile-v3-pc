@@ -87,15 +87,61 @@
     return out;
   }
 
+  function clearImgTimeout(imgEl) {
+    if (imgEl && imgEl._imgTimeout) {
+      clearTimeout(imgEl._imgTimeout);
+      imgEl._imgTimeout = null;
+    }
+  }
+
+  function armImgTimeout(imgEl, ms = 1600) {
+    clearImgTimeout(imgEl);
+    if (!imgEl) return;
+    imgEl._imgTimeout = setTimeout(() => {
+      if (imgEl.dataset.fbApplied !== '1' && (!imgEl.complete || imgEl.naturalWidth === 0)) {
+        handleImgFallback(imgEl);
+      }
+    }, ms);
+  }
+
   function configureImageElement(imgEl, candidates = [], slug = '') {
     if (!imgEl) return;
-    const list = collectCandidates(candidates[0], candidates.slice(1));
-    imgEl.dataset.candidates = JSON.stringify(list);
+    const ranked = candidates.map((u) => (typeof api.rankUrlByPreferredCdn === 'function' ? api.rankUrlByPreferredCdn(u) : u));
+    const list = collectCandidates(ranked[0], ranked.slice(1), candidates);
+    const cachedGood = slug && typeof api.getResolvedPoster === 'function' ? api.getResolvedPoster(slug) : '';
+    const finalList = cachedGood ? collectCandidates(cachedGood, list) : list;
+    imgEl.dataset.candidates = JSON.stringify(finalList);
     imgEl.dataset.candIdx = '0';
     imgEl.dataset.fbApplied = '0';
     imgEl.dataset.slug = slug || '';
     imgEl.dataset.detailFetched = '0';
-    imgEl.src = list[0] || FALLBACK_IMG_SVG;
+
+    if (!finalList.length) {
+      imgEl.src = FALLBACK_IMG_SVG;
+      return;
+    }
+
+    // Set primary candidate immediately + race secondary CDN in parallel so slowest CDN never blocks poster display
+    imgEl.src = finalList[0];
+    armImgTimeout(imgEl, 1500);
+
+    if (finalList.length > 1 && !cachedGood) {
+      const probe = new Image();
+      probe.decoding = 'async';
+      probe.onload = () => {
+        if (probe.naturalWidth > 0 && imgEl.dataset.fbApplied !== '1') {
+          if (!imgEl.complete || imgEl.naturalWidth === 0) {
+            clearImgTimeout(imgEl);
+            imgEl.dataset.candIdx = '1';
+            imgEl.src = finalList[1];
+          }
+          if (typeof api.rememberResolvedPoster === 'function') {
+            api.rememberResolvedPoster(slug, finalList[1]);
+          }
+        }
+      };
+      probe.src = finalList[1];
+    }
   }
 
   async function enrichImgFromDetail(imgEl) {
@@ -143,8 +189,10 @@
     if (Array.isArray(list) && idx < list.length) {
       imgEl.dataset.candIdx = String(idx);
       imgEl.src = list[idx];
+      armImgTimeout(imgEl, 1400);
       return;
     }
+    clearImgTimeout(imgEl);
     if (imgEl.dataset.slug && imgEl.dataset.detailFetched !== '1') {
       enrichImgFromDetail(imgEl);
       return;
@@ -376,9 +424,10 @@
     const metaText = options.metaText || (movie.year ? `${movie.year}` : '');
     const progressPct = typeof options.progressPct === 'number' ? options.progressPct : null;
     const eagerAttr = options.eager ? 'eager' : 'lazy';
+    const prioAttr = options.eager ? ' fetchpriority="high"' : '';
     card.innerHTML = `
       <div class="poster-wrap">
-        <img class="poster-img" src="${escapeHtml(FALLBACK_IMG_SVG)}" alt="${escapeHtml(movie.title)}" loading="${eagerAttr}" decoding="async" />
+        <img class="poster-img" src="${escapeHtml(FALLBACK_IMG_SVG)}" alt="${escapeHtml(movie.title)}" loading="${eagerAttr}"${prioAttr} decoding="async" />
         <span class="poster-badge">${escapeHtml(badgeText)}</span>
         ${progressPct !== null ? `<div class="progress-track"><div class="progress-fill" style="width:${Math.min(100, Math.max(0, progressPct))}%"></div></div>` : ''}
       </div>
@@ -390,8 +439,12 @@
     const pImg = card.querySelector('.poster-img');
     if (pImg) {
       pImg.addEventListener('load', () => {
+        clearImgTimeout(pImg);
         if (pImg.src && pImg.src !== FALLBACK_IMG_SVG && pWrap) {
           pWrap.classList.add('is-loaded');
+          if (typeof api.rememberResolvedPoster === 'function') {
+            api.rememberResolvedPoster(movie.slug || '', pImg.src);
+          }
           if (typeof pImg.decode === 'function') pImg.decode().catch(() => {});
         }
       });
@@ -483,19 +536,51 @@
     }
   }
 
+  function renderSkeletonGrid(container, count = 9) {
+    if (!container) return;
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < count; i++) {
+      const sk = document.createElement('div');
+      sk.className = 'movie-card skeleton-card';
+      sk.innerHTML = `
+        <div class="poster-wrap"></div>
+        <div class="card-body">
+          <div class="sk-line sk-title"></div>
+          <div class="sk-line sk-meta"></div>
+        </div>`;
+      frag.appendChild(sk);
+    }
+    container.replaceChildren(frag);
+  }
+
+  let catalogReqSeq = 0;
   async function loadCatalog() {
-    els.catalogGrid.innerHTML = `<div class="empty-state">Đang tải...</div>`;
+    const seq = ++catalogReqSeq;
+    if (els.catalogGrid.children.length === 0) {
+      renderSkeletonGrid(els.catalogGrid, 9);
+    }
     try {
       const res = await api.getCatalog(state.catalog);
+      if (seq !== catalogReqSeq) return;
       state.catalog.page = res.currentPage;
       state.catalog.totalPages = Number(res.totalPages || 0);
       els.pageIndicator.textContent = `${state.catalog.page}`;
       els.prevPageBtn.disabled = state.catalog.page <= 1;
       els.nextPageBtn.disabled = res.items.length === 0 || (state.catalog.totalPages > 0 && state.catalog.page >= state.catalog.totalPages);
-      els.catalogGrid.innerHTML = '';
-      if (!res.items.length) { els.catalogGrid.innerHTML = `<div class="empty-state">Trống</div>`; return; }
-      res.items.forEach((m) => els.catalogGrid.appendChild(createMovieCard(m)));
-    } catch (e) { els.catalogGrid.innerHTML = `<div class="empty-state">Lỗi</div>`; }
+      if (!res.items.length) {
+        els.catalogGrid.innerHTML = `<div class="empty-state">Trống</div>`;
+        return;
+      }
+      if (typeof api.warmPosterCache === 'function') {
+        api.warmPosterCache(res.items.slice(0, 12).map((m) => m.thumb || m.poster));
+      }
+      const frag = document.createDocumentFragment();
+      res.items.forEach((m, idx) => frag.appendChild(createMovieCard(m, { eager: idx < 9 })));
+      els.catalogGrid.replaceChildren(frag);
+    } catch (e) {
+      if (seq !== catalogReqSeq) return;
+      els.catalogGrid.innerHTML = `<div class="empty-state">Lỗi</div>`;
+    }
   }
 
   function renderSearchHistory() {
@@ -1163,6 +1248,10 @@
     await lockPortraitWhenIdle();
     syncBackgroundScrollLock();
     openWelcomeModal();
-    loadHome();
+    loadHome().then(() => {
+      if (typeof api.preloadDefaultCatalogs === 'function') {
+        setTimeout(() => api.preloadDefaultCatalogs(), 350);
+      }
+    });
   });
 })();

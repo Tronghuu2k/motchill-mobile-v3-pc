@@ -1,8 +1,8 @@
 {
   "name": "rosi-cinema-mobile",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "private": true,
-  "description": "Rosi Cinema v1.5.0 - Native Android APK hardware screen orientation rotation, smooth WebView vertical scrolling, welcome modal, ~2.8s slow stream failover, HLS priority, 4K Ultra selector.",
+  "description": "Rosi Cinema v1.5.1 - Native Android APK hardware screen orientation rotation, smooth WebView vertical scrolling, welcome modal, ~2.8s slow stream failover, HLS priority, 4K Ultra selector.",
   "scripts": {
     "serve": "python3 -m http.server 8080 -d client/src",
     "cap:add:android": "npx cap add android",

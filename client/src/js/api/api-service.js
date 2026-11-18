@@ -1,12 +1,14 @@
 (function () {
-  const APP_VERSION = '1.3.0';
+  const APP_VERSION = '1.5.1';
   const PRIMARY_API = 'https://phimapi.com';
   const IMG_CDNS = [
-    'https://img.phimapi.com',
     'https://phimimg.com',
+    'https://img.phimapi.com',
     'https://img.ophim1.com',
     'https://ophim17.cc'
   ];
+  const FAST_CDN_KEY = 'rosi_cinema_fast_cdn_v1';
+  let preferredCdnOrigin = readStorage(FAST_CDN_KEY, '') || '';
   const STORAGE_KEYS = {
     FAVORITES: 'rosi_cinema_favorites_v1',
     HISTORY: 'rosi_cinema_history_v1',
@@ -57,9 +59,16 @@
     return t;
   }
 
+  function getOrderedCdns() {
+    if (!preferredCdnOrigin) return IMG_CDNS;
+    const rest = IMG_CDNS.filter((c) => c !== preferredCdnOrigin);
+    return [preferredCdnOrigin, ...rest];
+  }
+
   function buildImageCandidates(rawUrls = []) {
     const out = [];
     const seen = new Set();
+    const cdns = getOrderedCdns();
     const pushUrl = (u) => {
       if (!u || typeof u !== 'string') return;
       const clean = toHttps(u).trim();
@@ -74,23 +83,28 @@
       if (!t) return;
 
       if (/^https?:\/\//i.test(t)) {
-        pushUrl(t);
         try {
           const parsed = new URL(t);
           const pathAndQuery = `${parsed.pathname}${parsed.search || ''}`;
-          IMG_CDNS.forEach((cdn) => {
+          if (preferredCdnOrigin) {
+            pushUrl(`${preferredCdnOrigin}${pathAndQuery.startsWith('/') ? '' : '/'}${pathAndQuery}`);
+          }
+          pushUrl(t);
+          cdns.forEach((cdn) => {
             pushUrl(`${cdn}${pathAndQuery.startsWith('/') ? '' : '/'}${pathAndQuery}`);
           });
           if (!parsed.pathname.includes('/upload/')) {
             const rel = parsed.pathname.replace(/^\/+/, '');
-            IMG_CDNS.forEach((cdn) => {
+            cdns.forEach((cdn) => {
               pushUrl(`${cdn}/upload/vod/${rel}${parsed.search || ''}`);
             });
           }
-        } catch (_) {}
+        } catch (_) {
+          pushUrl(t);
+        }
       } else {
         const rel = t.replace(/^\/+/, '');
-        IMG_CDNS.forEach((cdn) => {
+        cdns.forEach((cdn) => {
           pushUrl(`${cdn}/${rel}`);
           if (!rel.startsWith('upload/')) {
             pushUrl(`${cdn}/upload/vod/${rel}`);
@@ -139,25 +153,32 @@
     }
   }
 
-  async function cachedFetch(cacheKey, url, ttlMs = 1000 * 60 * 15) {
+  async function cachedFetch(cacheKey, url, ttlMs = 1000 * 60 * 30) {
     const fullKey = STORAGE_KEYS.CACHE_PREFIX + cacheKey;
     const cached = readStorage(fullKey);
-    if (cached && Date.now() - cached.ts < ttlMs) return cached.data;
-    if (inflightRequests.has(fullKey)) return inflightRequests.get(fullKey);
-    const reqPromise = (async () => {
-      try {
-        const data = await fetchJsonWithTimeout(url);
-        writeStorage(fullKey, { ts: Date.now(), data });
-        return data;
-      } catch (err) {
-        if (cached && cached.data) return cached.data;
-        throw err;
-      } finally {
-        inflightRequests.delete(fullKey);
-      }
-    })();
-    inflightRequests.set(fullKey, reqPromise);
-    return reqPromise;
+    const hasCachedData = Boolean(cached && cached.data);
+    const isFresh = hasCachedData && (Date.now() - cached.ts < ttlMs);
+    if (isFresh) return cached.data;
+
+    if (!inflightRequests.has(fullKey)) {
+      const reqPromise = (async () => {
+        try {
+          const data = await fetchJsonWithTimeout(url, 5500);
+          writeStorage(fullKey, { ts: Date.now(), data });
+          return data;
+        } catch (err) {
+          if (hasCachedData) return cached.data;
+          throw err;
+        } finally {
+          inflightRequests.delete(fullKey);
+        }
+      })();
+      inflightRequests.set(fullKey, reqPromise);
+    }
+
+    // Stale-while-revalidate: return cached list immediately (0ms) while updating in background
+    if (hasCachedData) return cached.data;
+    return inflightRequests.get(fullKey);
   }
 
   function extractMovieArray(payload) {
@@ -277,13 +298,15 @@
 
 
   const warmedPosterUrls = new Set();
-  let preferredCdnOrigin = '';
+  const resolvedPosterMap = new Map();
 
   function rankUrlByPreferredCdn(url) {
     if (!preferredCdnOrigin || !url) return url;
     try {
       const u = new URL(url);
-      if (u.origin === preferredCdnOrigin) return url;
+      if (IMG_CDNS.includes(u.origin) && u.origin !== preferredCdnOrigin) {
+        return `${preferredCdnOrigin}${u.pathname}${u.search || ''}`;
+      }
     } catch (_) {}
     return url;
   }
@@ -291,17 +314,29 @@
   function markWorkingCdn(url) {
     try {
       const u = new URL(url);
-      if (u.protocol === 'https:' && !u.hostname.includes('phimapi.com')) {
+      if (u.protocol === 'https:' && IMG_CDNS.includes(u.origin) && preferredCdnOrigin !== u.origin) {
         preferredCdnOrigin = u.origin;
+        writeStorage(FAST_CDN_KEY, preferredCdnOrigin);
       }
     } catch (_) {}
+  }
+
+  function rememberResolvedPoster(key, url) {
+    if (key && url && !url.startsWith('data:')) {
+      resolvedPosterMap.set(key, url);
+      markWorkingCdn(url);
+    }
+  }
+
+  function getResolvedPoster(key) {
+    return key ? resolvedPosterMap.get(key) || '' : '';
   }
 
   function warmPosterCache(urls = []) {
     if (typeof Image === 'undefined' || !Array.isArray(urls)) return;
     let queued = 0;
-    for (let i = 0; i < urls.length && queued < 14; i++) {
-      const u = toHttps(urls[i]);
+    for (let i = 0; i < urls.length && queued < 24; i++) {
+      const u = rankUrlByPreferredCdn(toHttps(urls[i]));
       if (!u || u.startsWith('data:') || warmedPosterUrls.has(u)) continue;
       warmedPosterUrls.add(u);
       queued += 1;
@@ -313,6 +348,26 @@
       };
       pre.src = u;
     }
+  }
+
+  function preloadDefaultCatalogs() {
+    const tasks = [
+      getCatalog({ type: 'phim-moi', page: 1 }),
+      getCatalog({ type: 'phim-bo', page: 1 }),
+      getCatalog({ type: 'phim-le', page: 1 }),
+      getCatalog({ type: 'hoat-hinh', page: 1 })
+    ];
+    Promise.allSettled(tasks).then((results) => {
+      const warmUrls = [];
+      results.forEach((r) => {
+        if (r.status === 'fulfilled' && r.value && Array.isArray(r.value.items)) {
+          r.value.items.slice(0, 6).forEach((m) => {
+            if (m.thumb) warmUrls.push(m.thumb);
+          });
+        }
+      });
+      warmPosterCache(warmUrls);
+    });
   }
 
 
@@ -488,6 +543,10 @@
   };
   methods.warmPosterCache = warmPosterCache;
   methods.rankUrlByPreferredCdn = rankUrlByPreferredCdn;
+  methods.markWorkingCdn = markWorkingCdn;
+  methods.rememberResolvedPoster = rememberResolvedPoster;
+  methods.getResolvedPoster = getResolvedPoster;
+  methods.preloadDefaultCatalogs = preloadDefaultCatalogs;
   methods.penalizeSlowStreamUrl = penalizeSlowStreamUrl;
   methods.rewardFastStreamUrl = rewardFastStreamUrl;
   window.RosiApi = methods;

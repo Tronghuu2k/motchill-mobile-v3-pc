@@ -529,3 +529,15 @@ html.is-landscape-playing.needs-css-landscape .player-overlay.is-landscape-mode 
   width: 14px;
   height: 14px;
 }
+
+
+/* v1.5.1 Instant Skeleton Cards for Fast Catalog/Search Rendering */
+.skeleton-card { pointer-events: none; }
+.sk-line {
+  height: 11px; border-radius: 6px;
+  background: linear-gradient(110deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.12) 45%, rgba(255,255,255,0.05) 65%);
+  background-size: 220% 100%;
+  animation: posterShimmer 1.2s linear infinite;
+}
+.sk-title { width: 82%; margin-bottom: 5px; }
+.sk-meta { width: 46%; height: 9px; }
