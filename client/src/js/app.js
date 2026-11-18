@@ -27,6 +27,7 @@
   let playerRequestSeq = 0;
   const enrichedSlugCache = new Map();
   const els = {};
+  const isFileProtocol = window.location.protocol === 'file:';
 
   function cacheElements() {
     [
@@ -257,16 +258,21 @@
   }
 
   function syncBackgroundScrollLock() {
-    if (!els.mainContent) return;
     const detailOpen = Boolean(els.detailModal && !els.detailModal.classList.contains('hidden'));
     const playerOpen = Boolean(els.playerModal && !els.playerModal.classList.contains('hidden'));
     const welcomeOpen = Boolean(els.welcomeModal && !els.welcomeModal.classList.contains('hidden'));
     const anyOpen = detailOpen || playerOpen || welcomeOpen;
-    els.mainContent.classList.toggle('scroll-locked', anyOpen);
-    if (!anyOpen) {
-      document.documentElement.style.overflowY = '';
-      document.body.style.overflowY = '';
+    if (els.mainContent) {
+      els.mainContent.classList.toggle('scroll-locked', anyOpen);
+      els.mainContent.style.overflowY = anyOpen ? 'hidden' : 'visible';
+      els.mainContent.style.touchAction = anyOpen ? 'none' : 'pan-y pinch-zoom';
     }
+    document.documentElement.classList.toggle('modal-open', anyOpen);
+    document.body.classList.toggle('modal-open', anyOpen);
+    document.documentElement.style.overflowY = anyOpen ? 'hidden' : 'auto';
+    document.body.style.overflowY = anyOpen ? 'hidden' : 'auto';
+    document.documentElement.style.touchAction = anyOpen ? 'none' : 'pan-y pinch-zoom';
+    document.body.style.touchAction = anyOpen ? 'none' : 'pan-y pinch-zoom';
   }
 
   function syncCssLandscapeFallback() {
@@ -274,11 +280,13 @@
       els.playerModal && !els.playerModal.classList.contains('hidden');
     if (!isLandscapeActive) {
       document.documentElement.classList.remove('needs-css-landscape');
+      els.playerModal?.classList.remove('force-rotate-90');
       return;
     }
-    const orientType = (screen.orientation && screen.orientation.type) || '';
-    const isPortraitViewport = window.innerHeight > window.innerWidth || orientType.includes('portrait');
+    // Check true hardware viewport dimensions: if width > height, native Android screen already rotated horizontally!
+    const isPortraitViewport = window.innerHeight > window.innerWidth;
     document.documentElement.classList.toggle('needs-css-landscape', isPortraitViewport);
+    els.playerModal?.classList.toggle('force-rotate-90', isPortraitViewport);
   }
 
   async function lockPortraitWhenIdle() {
@@ -286,6 +294,7 @@
     document.documentElement.classList.remove('is-landscape-playing');
     document.documentElement.classList.remove('needs-css-landscape');
     els.playerModal?.classList.remove('is-landscape-mode');
+    els.playerModal?.classList.remove('force-rotate-90');
     try {
       const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
       if (fsEl && document.exitFullscreen) await document.exitFullscreen();
@@ -349,6 +358,7 @@
     state.activeTab = tabId;
     document.querySelectorAll('.tab-view').forEach((v) => v.classList.toggle('active', v.id === tabId));
     document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === tabId));
+    try { window.scrollTo({ top: 0, behavior: 'instant' }); } catch (_) { window.scrollTo(0, 0); }
     if (els.mainContent) els.mainContent.scrollTop = 0;
     if (tabId === 'tab-catalog' && els.catalogGrid.children.length === 0) loadCatalog();
     else if (tabId === 'tab-library') renderLibrary();
@@ -543,6 +553,20 @@
         }));
       }
     });
+
+    const capApp = window.Capacitor?.Plugins?.App;
+    if (capApp?.addListener) {
+      capApp.addListener('backButton', () => {
+        const isPlayerOpen = els.playerModal && !els.playerModal.classList.contains('hidden');
+        const isDetailOpen = els.detailModal && !els.detailModal.classList.contains('hidden');
+        const isWelcomeOpen = els.welcomeModal && !els.welcomeModal.classList.contains('hidden');
+        if (isPlayerOpen) { closePlayer(); return; }
+        if (isDetailOpen) { closeDetailModal(); return; }
+        if (isWelcomeOpen) { closeWelcomeModal(); return; }
+        if (state.activeTab !== 'tab-home') { switchTab('tab-home'); return; }
+        if (capApp.exitApp) capApp.exitApp();
+      });
+    }
   }
 
   async function openMovieDetail(slug) {
@@ -1113,6 +1137,20 @@
         }
       }
     });
+
+    const capApp = window.Capacitor?.Plugins?.App;
+    if (capApp?.addListener) {
+      capApp.addListener('backButton', () => {
+        const isPlayerOpen = els.playerModal && !els.playerModal.classList.contains('hidden');
+        const isDetailOpen = els.detailModal && !els.detailModal.classList.contains('hidden');
+        const isWelcomeOpen = els.welcomeModal && !els.welcomeModal.classList.contains('hidden');
+        if (isPlayerOpen) { closePlayer(); return; }
+        if (isDetailOpen) { closeDetailModal(); return; }
+        if (isWelcomeOpen) { closeWelcomeModal(); return; }
+        if (state.activeTab !== 'tab-home') { switchTab('tab-home'); return; }
+        if (capApp.exitApp) capApp.exitApp();
+      });
+    }
   }
   document.addEventListener('DOMContentLoaded', async () => {
     cacheElements();

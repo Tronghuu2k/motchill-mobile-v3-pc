@@ -15,16 +15,23 @@
 }
 *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body {
-  margin: 0; padding: 0; width: 100%; min-height: 100%;
+  margin: 0; padding: 0; width: 100%; height: auto; min-height: 100%;
   background: var(--bg-app); color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 14px; line-height: 1.45; overflow-x: hidden; -webkit-overflow-scrolling: touch;
+  font-size: 14px; line-height: 1.45;
+  overflow-x: clip; overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: auto;
+  touch-action: pan-y pinch-zoom;
+}
+html.modal-open, body.modal-open {
+  overflow: hidden !important;
 }
 .hidden { display: none !important; }
 #openSettingsBtn, #settingsModal, .settings-btn, .settings-modal, #uiHealthBadge, .health-badge { display: none !important; }
 .app-shell {
-  display: flex; flex-direction: column; min-height: 100dvh; width: 100%; max-width: 100%;
-  margin: 0 auto; background: var(--bg-app); position: relative; overflow-x: hidden;
+  display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; width: 100%; max-width: 100%;
+  margin: 0 auto; background: var(--bg-app); position: relative; overflow: visible;
 }
 .top-header {
   position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between;
@@ -53,9 +60,9 @@ html, body {
 .header-icon-btn:active { transform: scale(0.92); background: var(--bg-elevated); border-color: var(--border-strong); }
 
 .main-content {
-  flex: 1 1 auto; width: 100%; min-height: 0; overflow-y: auto; overflow-x: hidden;
-  -webkit-overflow-scrolling: touch; touch-action: pan-y pinch-zoom;
-  padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 28px);
+  flex: 1 0 auto; width: 100%; overflow: visible !important;
+  touch-action: pan-y pinch-zoom;
+  padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 42px);
 }
 .main-content.scroll-locked { overflow: hidden !important; touch-action: none; }
 .main-content:not(.scroll-locked) { overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; touch-action: pan-y pinch-zoom !important; }
@@ -321,7 +328,8 @@ html.is-landscape-playing.needs-css-landscape .player-overlay.is-landscape-mode 
   overflow: hidden;
   z-index: 95;
 }
-html.is-landscape-playing.needs-css-landscape .player-overlay.is-landscape-mode .player-stage {
+html.is-landscape-playing.needs-css-landscape .player-overlay.is-landscape-mode .player-stage,
+.player-overlay.is-landscape-mode.force-rotate-90 .player-stage {
   position: fixed !important;
   top: 50% !important;
   left: 50% !important;
@@ -338,9 +346,8 @@ html.is-landscape-playing.needs-css-landscape .player-overlay.is-landscape-mode 
 .player-overlay.is-landscape-mode .player-stage.hud-hidden .vietsub-overlay { bottom: 20px; }
 
 /* v1.3.0 Smooth Home & Fast Player Transitions */
-.main-content, .h-scroll-row, .chip-row {
+.h-scroll-row, .chip-row {
   scroll-behavior: smooth;
-  overscroll-behavior-y: contain;
 }
 .h-scroll-row {
   scroll-snap-type: x proximity;

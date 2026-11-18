@@ -3,11 +3,13 @@
   "appName": "Rosi Cinema",
   "webDir": "client/src",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "cleartext": true
   },
   "android": {
     "allowMixedContent": true,
     "captureInput": true,
-    "webContentsDebuggingEnabled": false
+    "webContentsDebuggingEnabled": false,
+    "overScrollMode": "always"
   }
 }
